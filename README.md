@@ -1,112 +1,34 @@
-# GazePose-Context XR Prototype
+# HarmonyXR_GazePoseContext
 
-## Overview
+## Project Overview
 
-This project implements a behavior-centered multimodal framework for real-time context modeling in Extended Reality (XR) environments.
-
-The system integrates:
-
-* Head pose
-* Motion signals
-* Interaction input (click/pinch simulation)
-
-to infer user context in real time without requiring specialized hardware.
+This project implements a real-time XR context inference system using multimodal signals including gaze, head pose, body posture, hand interactions, and spatial context.
 
 ## Objective
 
-To demonstrate that lightweight, rule-based multimodal fusion can effectively classify user states in XR environments.
-
-## Context States
-
 The system classifies user behavior into four states:
 
-* **Engaged** — User is focused and interacting with task objects
-* **Exploring** — User is observing or scanning the environment
-* **Distracted** — User attention is away from task
-* **Idle** — User is inactive
+* Engaged
+* Distracted
+* Transitioning
+* Idle
 
-## System Architecture
+These states are used to enable adaptive XR interactions in real-time.
 
-The system is structured into three layers:
+## Architecture
 
-1. **Signal Capture Layer**
+The system follows a 3-layer architecture:
 
-   * Captures head movement, interaction signals, and object focus
+1. Sensor Abstraction Layer (signal capture)
+2. Context Engine (feature extraction and state inference)
+3. XR Application Layer (adaptive behaviors)
 
-2. **Context Engine**
+## Repository Details
 
-   * Extracts features (speed, angle, interaction)
-   * Applies rule-based classification
+* Repository: OpenSpatialAI
+* Branch: research/gaze-pose-context-v1
 
-3. **XR Adaptation Layer**
+## Research Context
 
-   * Applies UI and feedback changes based on detected state
+This project is part of the Harmony XR + AI framework and contributes to the GazePose-Context prototype for XR behavior modeling.
 
-## Features Implemented
-
-* Real-time state detection
-* Rule-based fusion logic
-* Temporal stability handling
-* Basic adaptive UI feedback
-* Debug logging of signals and states
-
-## Technologies Used
-
-* Unity (3D)
-* C#
-* XR Simulation (keyboard/mouse-based testing)
-
-## Current Status
-
-* Prototype: Functional and tested in Unity Editor
-* Context detection: Working for all 4 states
-* Adaptation: Basic UI responses implemented
-
-## Limitations
-
-* No gaze tracking (simulated using camera direction)
-* No real hand tracking (interaction simulated via input)
-* No user study conducted yet
-* No latency benchmarking
-
-## Future Work
-
-* Integrate gaze tracking (OpenXR)
-* Add hand tracking (OVRHand)
-* Conduct user study and evaluation
-* Add machine learning-based classification
-* Optimize for Meta Quest deployment
-
-## Repository Structure
-
-```
-Assets/
- ├── Scripts/
- │    ├── SignalCapture.cs
- │    ├── ContextStateDetector.cs
- │    ├── XRAdaptation.cs
- │    ├── GazeRaycast.cs
- │    └── ...
- ├── Scenes/
- │    └── SampleScene
-```
-
-## How to Run
-
-1. Open project in Unity
-2. Open `SampleScene`
-3. Click Play
-4. Use:
-
-   * Mouse → Look direction
-   * Click → Interaction
-   * WASD → Movement
-
-## Author
-
-Lavanya D
-VeeRuby Technologies
-
-## Note
-
-This project is part of the Harmony XR + AI research initiative and supports an arXiv preprint under development.
