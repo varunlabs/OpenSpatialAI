@@ -6,16 +6,16 @@ Version:Unity 2022.3.62f1
 
 ## OpenXR Plugin
 
-Version:
+Version:open xr 1.14.3 
 
 ## Meta XR All-in-One SDK
 
-Version:
+Version: 201.0.0
 
 ## Meta XR Core SDK
 
-Version:
+Version:Included with Meta XR All-in-One SDK <201.0.0>
 
 ## OVRPlugin
 
-Version:
+Version: 1.201.0
