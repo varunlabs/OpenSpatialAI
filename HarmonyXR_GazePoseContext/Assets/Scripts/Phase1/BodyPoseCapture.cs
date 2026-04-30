@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Layer 1 sensor script — no context inference logic
+// Layer 1 sensor script - no context inference logic
 public class BodyPoseCapture : MonoBehaviour
 {
     [Header("Tracking References")]
@@ -28,6 +28,8 @@ public class BodyPoseCapture : MonoBehaviour
     private Vector3 pendingGazeDirection;
     private bool hasPendingGazeDirection;
 
+    private float qaLogTimer;
+
     private static readonly OVRSkeleton.BoneId[] RequiredJoints =
     {
         OVRSkeleton.BoneId.Body_Hips,
@@ -44,11 +46,25 @@ public class BodyPoseCapture : MonoBehaviour
         ResetOutputs();
     }
 
+    private void Start()
+    {
+        Debug.Log("Run in Play Mode");
+        Debug.Log("Move head left/right and observe values");
+        Debug.Log("Ensure values are changing in real time");
+    }
+
     private void Update()
     {
-        UpdateBodyTracking();
         UpdateHeadPose();
+
+        bool hasBodyData = UpdateBodyTracking();
+        if (!hasBodyData)
+        {
+            ApplyEditorFallbackFromHead();
+        }
+
         UpdateHeadGazeDivergenceInternal();
+        ReportQaLogsOncePerSecond();
     }
 
     // Gaze direction can be injected by the synchronizer/caller when available.
@@ -63,20 +79,20 @@ public class BodyPoseCapture : MonoBehaviour
         }
     }
 
-    private void UpdateBodyTracking()
+    private bool UpdateBodyTracking()
     {
         if (bodySkeleton == null || !bodySkeleton.IsDataValid || bodySkeleton.Bones == null || bodySkeleton.Bones.Count == 0)
         {
             ResetBodyOutputs();
             previousJointPositions.Clear();
-            return;
+            return false;
         }
 
         if (!TryGetRequiredJointPositions(out Dictionary<OVRSkeleton.BoneId, Vector3> joints))
         {
             ResetBodyOutputs();
             previousJointPositions.Clear();
-            return;
+            return false;
         }
 
         spine_base = joints[OVRSkeleton.BoneId.Body_Hips];
@@ -91,7 +107,7 @@ public class BodyPoseCapture : MonoBehaviour
         Vector3 spineDirection = SafeNormalize(spineVector);
         spine_angle_deg = spineDirection == Vector3.zero ? 0f : Vector3.Angle(spineDirection, Vector3.up);
 
-        // Simple heuristic classification — will be refined in Layer 2
+        // Simple heuristic classification - will be refined in Layer 2
         if (spine_angle_deg < 10f)
         {
             posture_class = "standing";
@@ -106,6 +122,32 @@ public class BodyPoseCapture : MonoBehaviour
         }
 
         avg_joint_velocity = ComputeAverageJointVelocity(joints);
+        return true;
+    }
+
+    private void ApplyEditorFallbackFromHead()
+    {
+        if (head_forward == Vector3.zero)
+        {
+            posture_class = "unknown";
+            spine_angle_deg = 0f;
+            return;
+        }
+
+        spine_angle_deg = Vector3.Angle(Vector3.up, head_forward);
+
+        if (spine_angle_deg < 10f)
+        {
+            posture_class = "standing";
+        }
+        else if (spine_angle_deg <= 25f)
+        {
+            posture_class = "leaning";
+        }
+        else
+        {
+            posture_class = "reaching";
+        }
     }
 
     private void UpdateHeadPose()
@@ -149,8 +191,28 @@ public class BodyPoseCapture : MonoBehaviour
         head_gaze_divergence_deg = Vector3.Angle(head_forward, pendingGazeDirection);
     }
 
+    private void ReportQaLogsOncePerSecond()
+    {
+        qaLogTimer += Time.deltaTime;
+        if (qaLogTimer < 1f)
+        {
+            return;
+        }
+
+        Debug.Log("Head Forward: " + head_forward);
+        Debug.Log("Spine Angle: " + spine_angle_deg);
+        Debug.Log("Posture: " + posture_class);
+
+        qaLogTimer = 0f;
+    }
+
     private Transform ResolveHeadAnchor()
     {
+        if (Camera.main != null)
+        {
+            return Camera.main.transform;
+        }
+
         if (ovrCameraRig == null)
         {
             return null;
@@ -258,6 +320,7 @@ public class BodyPoseCapture : MonoBehaviour
         head_gaze_divergence_deg = 0f;
         hasPendingGazeDirection = false;
         pendingGazeDirection = Vector3.zero;
+        qaLogTimer = 0f;
     }
 
     private void ResetBodyOutputs()
@@ -272,6 +335,17 @@ public class BodyPoseCapture : MonoBehaviour
         posture_class = "unknown";
         spine_angle_deg = 0f;
         avg_joint_velocity = 0f;
+    }
+
+    private void OnGUI()
+    {
+        GUIStyle style = new GUIStyle();
+        style.fontSize = 24;
+        style.normal.textColor = Color.white;
+
+        GUI.Label(new Rect(20, 180, 900, 40), "Head Forward: " + head_forward, style);
+        GUI.Label(new Rect(20, 220, 900, 40), "Spine Angle: " + spine_angle_deg, style);
+        GUI.Label(new Rect(20, 260, 900, 40), "Posture: " + posture_class, style);
     }
 
     private static Vector3 SafeNormalize(Vector3 v)

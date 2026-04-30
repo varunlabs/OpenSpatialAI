@@ -21,9 +21,22 @@ public class GazeCapture : MonoBehaviour
     private bool hasPreviousDirection;
     private GameObject[] cachedAoiObjects;
 
+    private int updateCount;
+    private float rateTimer;
+    private float currentUpdateRateHz;
+    private bool invalidDirectionDetectedThisSecond;
+
     private void Awake()
     {
         CacheAoiObjects();
+    }
+
+    private void Start()
+    {
+        Debug.Log("Run in Unity Play Mode (no build required)");
+        Debug.Log("Move camera/head and observe update rate and AOI detection");
+        Debug.Log("Ensure update rate >= 60 Hz");
+        Debug.Log("Ensure no error logs appear");
     }
 
     private void OnEnable()
@@ -34,6 +47,9 @@ public class GazeCapture : MonoBehaviour
     // Use Update to follow headset eye-tracking refresh (~60-90Hz) rather than fixed physics ticks.
     private void Update()
     {
+        updateCount++;
+        rateTimer += Time.deltaTime;
+
         Transform gazeSource = centerEyeAnchor != null ? centerEyeAnchor : transform;
 
         Vector3 origin = gazeSource.position;
@@ -58,10 +74,16 @@ public class GazeCapture : MonoBehaviour
         gaze_origin = origin;
         gaze_direction = direction;
 
+        if (gaze_direction == Vector3.zero || !IsFinite(gaze_direction))
+        {
+            invalidDirectionDetectedThisSecond = true;
+        }
+
         Debug.DrawRay(origin, direction * maxRayDistance, Color.yellow);
 
         UpdateFixation(direction);
         UpdateAoiHit(origin, direction);
+        ReportQaLogsOncePerSecond();
     }
 
     private void UpdateAoiHit(Vector3 origin, Vector3 direction)
@@ -73,8 +95,6 @@ public class GazeCapture : MonoBehaviour
 
         if (Physics.Raycast(origin, direction, out RaycastHit hit, maxRayDistance))
         {
-            Debug.Log("Hit: " + hit.collider.name);
-
             if (hit.collider.CompareTag("AOI"))
             {
                 aoi_hit = hit.collider.gameObject.name;
@@ -82,11 +102,36 @@ public class GazeCapture : MonoBehaviour
                 // Green = gaze detected
                 SetRendererColor(hit.collider.gameObject, Color.green);
             }
-            else
-            {
-                Debug.Log("Hit but not AOI: " + hit.collider.tag);
-            }
         }
+    }
+
+    private void ReportQaLogsOncePerSecond()
+    {
+        if (rateTimer < 1f)
+        {
+            return;
+        }
+
+        currentUpdateRateHz = updateCount / rateTimer;
+        Debug.Log("Gaze Update Rate: " + currentUpdateRateHz.ToString("F1") + " Hz");
+
+        if (invalidDirectionDetectedThisSecond)
+        {
+            Debug.LogError("Invalid gaze direction detected");
+        }
+
+        if (aoi_hit != "none")
+        {
+            Debug.Log("Hit Object: " + aoi_hit);
+        }
+        else
+        {
+            Debug.Log("No AOI hit");
+        }
+
+        updateCount = 0;
+        rateTimer = 0f;
+        invalidDirectionDetectedThisSecond = false;
     }
 
     private void UpdateFixation(Vector3 currentDirection)
@@ -176,6 +221,17 @@ public class GazeCapture : MonoBehaviour
         fixation_duration_s = 0f;
         aoi_hit = "none";
         hasPreviousDirection = false;
+        updateCount = 0;
+        rateTimer = 0f;
+        currentUpdateRateHz = 0f;
+        invalidDirectionDetectedThisSecond = false;
+    }
+
+    private void OnGUI()
+    {
+        GUI.color = Color.white;
+        GUI.Label(new Rect(12, 12, 400, 24), "Gaze Update Rate: " + currentUpdateRateHz.ToString("F1") + " Hz");
+        GUI.Label(new Rect(12, 34, 400, 24), "AOI Hit: " + aoi_hit);
     }
 
     private static Vector3 SafeNormalize(Vector3 v)
