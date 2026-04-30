@@ -1,0 +1,29 @@
+{
+  "timestamp_ms": 0,
+
+  "gaze_origin": [0.0, 0.0, 0.0],
+  "gaze_direction": [0.0, 0.0, 1.0],
+  "is_fixation": false,
+  "fixation_duration_s": 0.0,
+  "aoi_hit": "none",
+
+  "head_position": [0.0, 0.0, 0.0],
+  "head_forward": [0.0, 0.0, 1.0],
+  "head_gaze_divergence_deg": 0.0,
+
+  "posture_class": "standing",
+  "spine_angle_deg": 0.0,
+  "avg_joint_velocity": 0.0,
+
+  "left_pinch": false,
+  "right_pinch": false,
+  "interaction_count_10s": 0,
+  "nearest_object_dist_m": 0.0,
+
+  "posture_mode": "standing",
+  "boundary_type": "stationary",
+  "locomotion_delta_m": 0.0,
+
+  "context_state": "unknown",
+  "context_confidence": 0.0
+}
