@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Layer 1 sensor script — handles hand tracking only, no context logic
 public class HandCapture : MonoBehaviour
 {
     [Header("Hand References")]
@@ -19,11 +18,10 @@ public class HandCapture : MonoBehaviour
     private readonly Queue<float> interactionEventTimes = new Queue<float>();
     private bool prevLeftPinch;
     private bool prevRightPinch;
-    private GameObject[] cachedAoiObjects;
+    private float qaLogTimer;
 
     private void Awake()
     {
-        CacheAoiObjects();
         ResetOutputs();
     }
 
@@ -32,6 +30,7 @@ public class HandCapture : MonoBehaviour
         UpdatePinchStates();
         UpdateInteractionWindow();
         UpdateNearestAoiDistance();
+        ReportQaLogsOncePerSecond();
     }
 
     private void UpdatePinchStates()
@@ -69,7 +68,7 @@ public class HandCapture : MonoBehaviour
             return false;
         }
 
-        return pinchStrength > pinchThreshold;
+        return pinchStrength >= pinchThreshold;
     }
 
     private void RegisterInteractionEvent()
@@ -77,7 +76,6 @@ public class HandCapture : MonoBehaviour
         interactionEventTimes.Enqueue(Time.time);
     }
 
-    // Maintains rolling 10-second interaction event window.
     private void UpdateInteractionWindow()
     {
         float cutoff = Time.time - 10f;
@@ -95,93 +93,42 @@ public class HandCapture : MonoBehaviour
         Transform dominantHand = ResolveDominantHandTransform();
         if (dominantHand == null || !IsFinite(dominantHand.position))
         {
-            // nearest_object_dist_m = 0 means no AOI found OR hand tracking unavailable.
             nearest_object_dist_m = 0f;
             return;
         }
 
-        if (cachedAoiObjects == null || cachedAoiObjects.Length == 0)
+        GameObject[] aoiObjects = GameObject.FindGameObjectsWithTag("AOI");
+        if (aoiObjects == null || aoiObjects.Length == 0)
         {
-            CacheAoiObjects();
-        }
-
-        if (cachedAoiObjects == null || cachedAoiObjects.Length == 0)
-        {
-            // nearest_object_dist_m = 0 means no AOI found OR hand tracking unavailable.
             nearest_object_dist_m = 0f;
             return;
         }
 
         float nearest = float.PositiveInfinity;
-        Vector3 handPosition = dominantHand.position;
+        Vector3 handPos = dominantHand.position;
 
-        for (int i = 0; i < cachedAoiObjects.Length; i++)
+        for (int i = 0; i < aoiObjects.Length; i++)
         {
-            GameObject obj = cachedAoiObjects[i];
+            GameObject obj = aoiObjects[i];
             if (obj == null)
             {
                 continue;
             }
 
-            Vector3 target = obj.transform.position;
-            if (!IsFinite(target))
+            Vector3 aoiPos = obj.transform.position;
+            if (!IsFinite(aoiPos))
             {
                 continue;
             }
 
-            float dist = Vector3.Distance(handPosition, target);
+            float dist = Vector3.Distance(handPos, aoiPos);
             if (IsFinite(dist) && dist < nearest)
             {
                 nearest = dist;
             }
         }
 
-        if (float.IsPositiveInfinity(nearest))
-        {
-            CacheAoiObjects();
-            nearest = FindNearestDistanceFromCache(handPosition);
-        }
-
-        // nearest_object_dist_m = 0 means no AOI found OR hand tracking unavailable.
         nearest_object_dist_m = float.IsPositiveInfinity(nearest) ? 0f : nearest;
-    }
-
-    private float FindNearestDistanceFromCache(Vector3 handPosition)
-    {
-        if (cachedAoiObjects == null || cachedAoiObjects.Length == 0)
-        {
-            return float.PositiveInfinity;
-        }
-
-        float nearest = float.PositiveInfinity;
-
-        for (int i = 0; i < cachedAoiObjects.Length; i++)
-        {
-            GameObject obj = cachedAoiObjects[i];
-            if (obj == null)
-            {
-                continue;
-            }
-
-            Vector3 target = obj.transform.position;
-            if (!IsFinite(target))
-            {
-                continue;
-            }
-
-            float dist = Vector3.Distance(handPosition, target);
-            if (IsFinite(dist) && dist < nearest)
-            {
-                nearest = dist;
-            }
-        }
-
-        return nearest;
-    }
-
-    private void CacheAoiObjects()
-    {
-        cachedAoiObjects = GameObject.FindGameObjectsWithTag("AOI");
     }
 
     private Transform ResolveDominantHandTransform()
@@ -201,12 +148,23 @@ public class HandCapture : MonoBehaviour
 
     private bool IsHandTracked(OVRHand hand)
     {
-        if (hand == null)
+        return hand != null && hand.IsTracked && hand.IsDataHighConfidence;
+    }
+
+    private void ReportQaLogsOncePerSecond()
+    {
+        qaLogTimer += Time.deltaTime;
+        if (qaLogTimer < 1f)
         {
-            return false;
+            return;
         }
 
-        return hand.IsTracked && hand.IsDataHighConfidence;
+        Debug.Log("Left Pinch: " + left_pinch);
+        Debug.Log("Right Pinch: " + right_pinch);
+        Debug.Log("Interaction Count (10s): " + interaction_count_10s);
+        Debug.Log("Nearest Distance: " + nearest_object_dist_m);
+
+        qaLogTimer = 0f;
     }
 
     private void ResetOutputs()
@@ -217,16 +175,29 @@ public class HandCapture : MonoBehaviour
         nearest_object_dist_m = 0f;
         prevLeftPinch = false;
         prevRightPinch = false;
+        qaLogTimer = 0f;
         interactionEventTimes.Clear();
     }
 
-    private static bool IsFinite(Vector3 v)
+    private void OnGUI()
     {
-        return IsFinite(v.x) && IsFinite(v.y) && IsFinite(v.z);
+        GUIStyle style = new GUIStyle();
+        style.fontSize = 16;
+        style.normal.textColor = Color.white;
+
+        GUI.Label(new Rect(10, 340, 900, 30), "Left Pinch: " + left_pinch, style);
+        GUI.Label(new Rect(10, 365, 900, 30), "Right Pinch: " + right_pinch, style);
+        GUI.Label(new Rect(10, 390, 900, 30), "Interaction Count (10s): " + interaction_count_10s, style);
+        GUI.Label(new Rect(10, 415, 900, 30), "Nearest Distance: " + nearest_object_dist_m.ToString("F3"), style);
     }
 
     private static bool IsFinite(float value)
     {
         return !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+
+    private static bool IsFinite(Vector3 v)
+    {
+        return IsFinite(v.x) && IsFinite(v.y) && IsFinite(v.z);
     }
 }

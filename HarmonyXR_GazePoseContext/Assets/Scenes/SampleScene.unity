@@ -484,6 +484,7 @@ GameObject:
   - component: {fileID: 423968922}
   - component: {fileID: 423968921}
   - component: {fileID: 423968920}
+  - component: {fileID: 423968925}
   m_Layer: 0
   m_Name: Camera Rig
   m_TagString: Untagged
@@ -656,6 +657,21 @@ Transform:
   - {fileID: 1810906811}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &423968925
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 423968919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4ac0d1d61b954f4293f3ad35fa03449, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moveSpeed: 2.5
+  lookSensitivity: 2
+  lockCursorOnPlay: 1
 --- !u!1 &473104174
 GameObject:
   m_ObjectHideFlags: 0
@@ -824,6 +840,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 628439466}
+  - component: {fileID: 628439467}
   m_Layer: 0
   m_Name: RightHandAnchor
   m_TagString: Untagged
@@ -848,6 +865,22 @@ Transform:
   - {fileID: 1001757249}
   m_Father: {fileID: 1810906811}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &628439467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 628439465}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb7623a8f0b49cf4dbaa40aea4d4be64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  HandType: 1
+  _pointerPoseRoot: {fileID: 0}
+  m_showState: 3
+  RayHelper: {fileID: 0}
 --- !u!1 &642934196
 GameObject:
   m_ObjectHideFlags: 0
@@ -857,6 +890,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 642934197}
+  - component: {fileID: 642934198}
   m_Layer: 0
   m_Name: LeftHandAnchor
   m_TagString: Untagged
@@ -881,6 +915,22 @@ Transform:
   - {fileID: 56790755}
   m_Father: {fileID: 1810906811}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &642934198
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 642934196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb7623a8f0b49cf4dbaa40aea4d4be64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  HandType: 0
+  _pointerPoseRoot: {fileID: 0}
+  m_showState: 3
+  RayHelper: {fileID: 0}
 --- !u!1 &695746672
 GameObject:
   m_ObjectHideFlags: 0
@@ -988,7 +1038,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 51f1b987da4aefc4f95739acd07e846e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  centerEyeAnchor: {fileID: 0}
+  centerEyeAnchor: {fileID: 695746673}
   maxRayDistance: 20
   fixationAngleThresholdDeg: 1.5
 --- !u!114 &695746677
@@ -1537,6 +1587,9 @@ GameObject:
   m_Component:
   - component: {fileID: 2054315251}
   - component: {fileID: 2054315250}
+  - component: {fileID: 2054315254}
+  - component: {fileID: 2054315253}
+  - component: {fileID: 2054315252}
   m_Layer: 0
   m_Name: Phase1Manager
   m_TagString: Untagged
@@ -1573,6 +1626,52 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2054315252
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054315249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bbf5b31db6a9284eba81aae3cf1bf76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gazeCapture: {fileID: 0}
+  bodyPoseCapture: {fileID: 0}
+  handCapture: {fileID: 0}
+  spatialContextDetector: {fileID: 0}
+--- !u!114 &2054315253
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054315249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18bbb9b1e5706fc4ea233b93a5419fae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ovrCameraRig: {fileID: 0}
+  defaultStandingHeightM: 1.6
+  sittingDeltaThresholdM: 0.25
+--- !u!114 &2054315254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054315249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63ded5c4b464a8345bfe2ebfc8e2aa45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  leftHand: {fileID: 642934198}
+  rightHand: {fileID: 628439467}
+  pinchThreshold: 0.7
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

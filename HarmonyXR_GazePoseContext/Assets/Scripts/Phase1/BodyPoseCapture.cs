@@ -340,12 +340,12 @@ public class BodyPoseCapture : MonoBehaviour
     private void OnGUI()
     {
         GUIStyle style = new GUIStyle();
-        style.fontSize = 24;
+        style.fontSize = 16;
         style.normal.textColor = Color.white;
 
-        GUI.Label(new Rect(20, 180, 900, 40), "Head Forward: " + head_forward, style);
-        GUI.Label(new Rect(20, 220, 900, 40), "Spine Angle: " + spine_angle_deg, style);
-        GUI.Label(new Rect(20, 260, 900, 40), "Posture: " + posture_class, style);
+        GUI.Label(new Rect(10, 260, 900, 30), "Head Forward: " + head_forward, style);
+        GUI.Label(new Rect(10, 285, 900, 30), "Spine Angle: " + spine_angle_deg, style);
+        GUI.Label(new Rect(10, 310, 900, 30), "Posture: " + posture_class, style);
     }
 
     private static Vector3 SafeNormalize(Vector3 v)

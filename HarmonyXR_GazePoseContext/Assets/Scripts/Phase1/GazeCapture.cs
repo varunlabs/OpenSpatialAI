@@ -229,9 +229,12 @@ public class GazeCapture : MonoBehaviour
 
     private void OnGUI()
     {
-        GUI.color = Color.white;
-        GUI.Label(new Rect(12, 12, 400, 24), "Gaze Update Rate: " + currentUpdateRateHz.ToString("F1") + " Hz");
-        GUI.Label(new Rect(12, 34, 400, 24), "AOI Hit: " + aoi_hit);
+        GUIStyle style = new GUIStyle();
+        style.fontSize = 16;
+        style.normal.textColor = Color.white;
+
+        GUI.Label(new Rect(10, 200, 900, 30), "Gaze Update Rate: " + currentUpdateRateHz.ToString("F1") + " Hz", style);
+        GUI.Label(new Rect(10, 225, 900, 30), "AOI Hit: " + aoi_hit, style);
     }
 
     private static Vector3 SafeNormalize(Vector3 v)
