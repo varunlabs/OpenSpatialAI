@@ -122,6 +122,54 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &42719955
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 42719957}
+  - component: {fileID: 42719956}
+  m_Layer: 0
+  m_Name: SignalSynchroniser
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &42719956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 42719955}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bbf5b31db6a9284eba81aae3cf1bf76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gazeCapture: {fileID: 695746676}
+  bodyPoseCapture: {fileID: 2054315250}
+  handCapture: {fileID: 2054315254}
+  spatialContextDetector: {fileID: 2054315253}
+--- !u!4 &42719957
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 42719955}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 169.64932, y: 245.3295, z: -0.6006721}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &56790754
 GameObject:
   m_ObjectHideFlags: 0
@@ -844,7 +892,7 @@ MonoBehaviour:
   LateControllerUpdate: 1
   LateLatching: 0
   controllerDrivenHandPosesType: 0
-  SimultaneousHandsAndControllersEnabled: 1
+  SimultaneousHandsAndControllersEnabled: 0
   _readOnlyWideMotionModeHandPosesEnabled: 0
   wideMotionModeHandPosesEnabled: 0
   _readOnlyFastMotionModeHandPosesEnabled: 0
@@ -3035,6 +3083,7 @@ GameObject:
   - component: {fileID: 2054315253}
   - component: {fileID: 2054315252}
   - component: {fileID: 2054315255}
+  - component: {fileID: 2054315256}
   m_Layer: 0
   m_Name: Phase1Manager
   m_TagString: Untagged
@@ -3132,6 +3181,20 @@ MonoBehaviour:
   centerEyeAnchor: {fileID: 695746673}
   maxRayDistance: 50
   fixationAngleThresholdDeg: 1.5
+--- !u!114 &2054315256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2054315249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c80d095b57243848960eebf6e9b5822, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  signalSynchroniser: {fileID: 0}
+  logToConsole: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -3145,3 +3208,4 @@ SceneRoots:
   - {fileID: 1802880511}
   - {fileID: 1581245596}
   - {fileID: 2033115769}
+  - {fileID: 42719957}
