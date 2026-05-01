@@ -227,16 +227,6 @@ public class GazeCapture : MonoBehaviour
         invalidDirectionDetectedThisSecond = false;
     }
 
-    private void OnGUI()
-    {
-        GUIStyle style = new GUIStyle();
-        style.fontSize = 16;
-        style.normal.textColor = Color.white;
-
-        GUI.Label(new Rect(10, 200, 900, 30), "Gaze Update Rate: " + currentUpdateRateHz.ToString("F1") + " Hz", style);
-        GUI.Label(new Rect(10, 225, 900, 30), "AOI Hit: " + aoi_hit, style);
-    }
-
     private static Vector3 SafeNormalize(Vector3 v)
     {
         if (!IsFinite(v))

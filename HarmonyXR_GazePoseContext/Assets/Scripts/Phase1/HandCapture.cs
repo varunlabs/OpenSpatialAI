@@ -23,6 +23,7 @@ public class HandCapture : MonoBehaviour
     private void Awake()
     {
         ResetOutputs();
+        Debug.Log("Test on headset: pinch index+thumb; observe values change");
     }
 
     private void Update()
@@ -35,8 +36,8 @@ public class HandCapture : MonoBehaviour
 
     private void UpdatePinchStates()
     {
-        left_pinch = ReadPinchState(leftHand);
-        right_pinch = ReadPinchState(rightHand);
+        left_pinch = ReadPinchState(leftHand, "Left");
+        right_pinch = ReadPinchState(rightHand, "Right");
 
         bool leftPinchStart = left_pinch && !prevLeftPinch;
         bool rightPinchStart = right_pinch && !prevRightPinch;
@@ -55,20 +56,39 @@ public class HandCapture : MonoBehaviour
         prevRightPinch = right_pinch;
     }
 
-    private bool ReadPinchState(OVRHand hand)
+    private bool ReadPinchState(OVRHand hand, string handLabel)
     {
-        if (!IsHandTracked(hand))
+        if (hand == null)
+        {
+            Debug.Log(handLabel + " Hand Tracked: false");
+            Debug.Log(handLabel + " Hand HighConfidence: false");
+            Debug.Log(handLabel + " Pinch Strength: 0");
+            return false;
+        }
+
+        Debug.Log(handLabel + " Hand Tracked: " + hand.IsTracked);
+        Debug.Log(handLabel + " Hand HighConfidence: " + hand.IsDataHighConfidence);
+
+        if (!hand.IsTracked || !hand.IsDataHighConfidence)
         {
             return false;
         }
 
-        float pinchStrength = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
-        if (!IsFinite(pinchStrength))
+        float strength = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
+        Debug.Log(handLabel + " Pinch Strength: " + strength);
+
+        if (!IsFinite(strength))
         {
             return false;
         }
 
-        return pinchStrength >= pinchThreshold;
+        bool pinch = strength >= pinchThreshold;
+        if (pinch)
+        {
+            Debug.Log("PINCH DETECTED");
+        }
+
+        return pinch;
     }
 
     private void RegisterInteractionEvent()
@@ -159,10 +179,12 @@ public class HandCapture : MonoBehaviour
             return;
         }
 
-        Debug.Log("Left Pinch: " + left_pinch);
-        Debug.Log("Right Pinch: " + right_pinch);
-        Debug.Log("Interaction Count (10s): " + interaction_count_10s);
-        Debug.Log("Nearest Distance: " + nearest_object_dist_m);
+        Debug.Log(
+            "Left Pinch: " + left_pinch +
+            " | Right Pinch: " + right_pinch +
+            " | Interaction Count (10s): " + interaction_count_10s +
+            " | Nearest Distance (m): " + nearest_object_dist_m.ToString("F3")
+        );
 
         qaLogTimer = 0f;
     }
@@ -177,18 +199,6 @@ public class HandCapture : MonoBehaviour
         prevRightPinch = false;
         qaLogTimer = 0f;
         interactionEventTimes.Clear();
-    }
-
-    private void OnGUI()
-    {
-        GUIStyle style = new GUIStyle();
-        style.fontSize = 16;
-        style.normal.textColor = Color.white;
-
-        GUI.Label(new Rect(10, 340, 900, 30), "Left Pinch: " + left_pinch, style);
-        GUI.Label(new Rect(10, 365, 900, 30), "Right Pinch: " + right_pinch, style);
-        GUI.Label(new Rect(10, 390, 900, 30), "Interaction Count (10s): " + interaction_count_10s, style);
-        GUI.Label(new Rect(10, 415, 900, 30), "Nearest Distance: " + nearest_object_dist_m.ToString("F3"), style);
     }
 
     private static bool IsFinite(float value)

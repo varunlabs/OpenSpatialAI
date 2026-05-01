@@ -337,17 +337,6 @@ public class BodyPoseCapture : MonoBehaviour
         avg_joint_velocity = 0f;
     }
 
-    private void OnGUI()
-    {
-        GUIStyle style = new GUIStyle();
-        style.fontSize = 16;
-        style.normal.textColor = Color.white;
-
-        GUI.Label(new Rect(10, 260, 900, 30), "Head Forward: " + head_forward, style);
-        GUI.Label(new Rect(10, 285, 900, 30), "Spine Angle: " + spine_angle_deg, style);
-        GUI.Label(new Rect(10, 310, 900, 30), "Posture: " + posture_class, style);
-    }
-
     private static Vector3 SafeNormalize(Vector3 v)
     {
         if (!IsFinite(v))
