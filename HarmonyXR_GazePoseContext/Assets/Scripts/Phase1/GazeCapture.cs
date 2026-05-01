@@ -19,17 +19,13 @@ public class GazeCapture : MonoBehaviour
 
     private Vector3 previousDirection;
     private bool hasPreviousDirection;
-    private GameObject[] cachedAoiObjects;
 
     private int updateCount;
     private float rateTimer;
     private float currentUpdateRateHz;
     private bool invalidDirectionDetectedThisSecond;
-
-    private void Awake()
-    {
-        CacheAoiObjects();
-    }
+    private Camera cachedCenterEyeCamera;
+    private GazeHighlight lastGazedHighlight;
 
     private void Start()
     {
@@ -50,10 +46,7 @@ public class GazeCapture : MonoBehaviour
         updateCount++;
         rateTimer += Time.deltaTime;
 
-        Transform gazeSource = centerEyeAnchor != null ? centerEyeAnchor : transform;
-
-        Vector3 origin = gazeSource.position;
-        Vector3 direction = gazeSource.forward;
+        ResolveGazeRay(out Vector3 origin, out Vector3 direction);
 
         if (!IsFinite(origin))
         {
@@ -86,23 +79,68 @@ public class GazeCapture : MonoBehaviour
         ReportQaLogsOncePerSecond();
     }
 
+    private void ResolveGazeRay(out Vector3 origin, out Vector3 direction)
+    {
+        Transform gazeSource = centerEyeAnchor != null ? centerEyeAnchor : transform;
+
+        Camera eyeCamera = GetCenterEyeCamera();
+        if (eyeCamera != null)
+        {
+            Ray centerRay = eyeCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+            origin = centerRay.origin;
+            direction = centerRay.direction;
+            return;
+        }
+
+        origin = gazeSource.position;
+        direction = gazeSource.forward;
+    }
+
+    private Camera GetCenterEyeCamera()
+    {
+        if (cachedCenterEyeCamera != null)
+        {
+            return cachedCenterEyeCamera;
+        }
+
+        if (centerEyeAnchor != null)
+        {
+            cachedCenterEyeCamera = centerEyeAnchor.GetComponent<Camera>();
+            if (cachedCenterEyeCamera != null)
+            {
+                return cachedCenterEyeCamera;
+            }
+        }
+
+        cachedCenterEyeCamera = Camera.main;
+        return cachedCenterEyeCamera;
+    }
+
     private void UpdateAoiHit(Vector3 origin, Vector3 direction)
     {
         aoi_hit = "none";
-
-        // Red = no gaze
-        SetAllAoiRed();
+        GazeHighlight currentHighlight = null;
 
         if (Physics.Raycast(origin, direction, out RaycastHit hit, maxRayDistance))
         {
             if (hit.collider.CompareTag("AOI"))
             {
                 aoi_hit = hit.collider.gameObject.name;
-
-                // Green = gaze detected
-                SetRendererColor(hit.collider.gameObject, Color.green);
+                currentHighlight = ResolveGazeHighlight(hit.collider);
             }
         }
+
+        if (lastGazedHighlight != null && lastGazedHighlight != currentHighlight)
+        {
+            lastGazedHighlight.SetGazeState(false);
+        }
+
+        if (currentHighlight != null)
+        {
+            currentHighlight.SetGazeState(true);
+        }
+
+        lastGazedHighlight = currentHighlight;
     }
 
     private void ReportQaLogsOncePerSecond()
@@ -163,54 +201,26 @@ public class GazeCapture : MonoBehaviour
         previousDirection = currentDirection;
     }
 
-    private void SetAllAoiRed()
+    private GazeHighlight ResolveGazeHighlight(Collider hitCollider)
     {
-        EnsureAoiCache();
-
-        for (int i = 0; i < cachedAoiObjects.Length; i++)
+        if (hitCollider == null)
         {
-            SetRendererColor(cachedAoiObjects[i], Color.red);
-        }
-    }
-
-    private void CacheAoiObjects()
-    {
-        cachedAoiObjects = GameObject.FindGameObjectsWithTag("AOI");
-    }
-
-    private void EnsureAoiCache()
-    {
-        if (cachedAoiObjects == null || cachedAoiObjects.Length == 0)
-        {
-            CacheAoiObjects();
-            return;
+            return null;
         }
 
-        for (int i = 0; i < cachedAoiObjects.Length; i++)
+        GazeHighlight highlight = hitCollider.GetComponent<GazeHighlight>();
+        if (highlight != null)
         {
-            if (cachedAoiObjects[i] == null)
-            {
-                CacheAoiObjects();
-                return;
-            }
-        }
-    }
-
-    private void SetRendererColor(GameObject target, Color color)
-    {
-        if (target == null)
-        {
-            return;
+            return highlight;
         }
 
-        Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer == null)
+        highlight = hitCollider.GetComponentInParent<GazeHighlight>();
+        if (highlight != null)
         {
-            return;
+            return highlight;
         }
 
-        // Uses renderer.material intentionally for per-object debug color (instanced material).
-        renderer.material.color = color;
+        return hitCollider.GetComponentInChildren<GazeHighlight>(true);
     }
 
     private void ResetOutputs()
@@ -225,6 +235,11 @@ public class GazeCapture : MonoBehaviour
         rateTimer = 0f;
         currentUpdateRateHz = 0f;
         invalidDirectionDetectedThisSecond = false;
+        if (lastGazedHighlight != null)
+        {
+            lastGazedHighlight.SetGazeState(false);
+            lastGazedHighlight = null;
+        }
     }
 
     private static Vector3 SafeNormalize(Vector3 v)

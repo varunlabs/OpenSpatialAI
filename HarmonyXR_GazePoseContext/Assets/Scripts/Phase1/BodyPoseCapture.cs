@@ -134,7 +134,10 @@ public class BodyPoseCapture : MonoBehaviour
             return;
         }
 
-        spine_angle_deg = Vector3.Angle(Vector3.up, head_forward);
+        Vector3 forward = head_forward;
+        Vector3 flatForward = new Vector3(forward.x, 0f, forward.z).normalized;
+        float angle = Vector3.Angle(flatForward, forward);
+        spine_angle_deg = angle;
 
         if (spine_angle_deg < 10f)
         {
