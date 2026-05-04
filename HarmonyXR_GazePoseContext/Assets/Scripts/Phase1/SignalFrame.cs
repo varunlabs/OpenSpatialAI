@@ -31,4 +31,8 @@ public struct SignalFrame
 
     public string context_state; // Derived context state label
     public float context_confidence; // Confidence score for context_state
+    public string prev_context_state; // Previous derived context state label
+    public int state_hold_duration_ms; // How long current state has been held
+    public float state_transition_count; // Number of context state transitions observed
+    public string nearest_interactable; // Nearest interactable object identifier
 }
