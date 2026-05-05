@@ -132,6 +132,7 @@ GameObject:
   m_Component:
   - component: {fileID: 42719957}
   - component: {fileID: 42719956}
+  - component: {fileID: 42719958}
   m_Layer: 0
   m_Name: SignalSynchroniser
   m_TagString: Untagged
@@ -170,6 +171,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &42719958
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 42719955}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 002f53783a9c20e4dbbd0ab0f30ff7c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textMesh: {fileID: 0}
 --- !u!1 &56790754
 GameObject:
   m_ObjectHideFlags: 0
@@ -2465,6 +2479,7 @@ GameObject:
   - component: {fileID: 1090898797}
   - component: {fileID: 1090898796}
   - component: {fileID: 1090898800}
+  - component: {fileID: 1090898801}
   m_Layer: 0
   m_Name: AOI_TestCube_10cm
   m_TagString: AOI
@@ -2570,6 +2585,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc815bd8769c20b4aa443a462c7151e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  useContextStateColor: 1
+  idleColor: {r: 1, g: 1, b: 1, a: 1}
+  engagedColor: {r: 0, g: 1, b: 0, a: 1}
+  transitioningColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  distractedColor: {r: 1, g: 0, b: 0, a: 1}
+--- !u!114 &1090898801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1090898795}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 002f53783a9c20e4dbbd0ab0f30ff7c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  textMesh: {fileID: 0}
 --- !u!1 &1262705924
 GameObject:
   m_ObjectHideFlags: 0
@@ -3402,8 +3435,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   signalSynchroniser: {fileID: 42719956}
-  cubeDisplay: {fileID: 0}
+  cubeDisplay: {fileID: 1090898801}
   uiDisplay: {fileID: 1331474908}
+  contextCubeHighlight: {fileID: 1090898800}
 --- !u!1 &2123045773
 GameObject:
   m_ObjectHideFlags: 0

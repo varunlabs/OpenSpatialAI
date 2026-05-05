@@ -5,6 +5,7 @@ public class ContextDebugTester : MonoBehaviour
     [SerializeField] private SignalSynchroniser signalSynchroniser;
     [SerializeField] private CubeStateDisplay cubeDisplay;
     [SerializeField] private ContextStateUIDisplay uiDisplay;
+    [SerializeField] private GazeHighlight contextCubeHighlight;
 
     private GazeFeatureExtractor gazeExtractor;
     private BodyFeatureExtractor bodyExtractor;
@@ -40,6 +41,10 @@ public class ContextDebugTester : MonoBehaviour
         {
             uiDisplay = FindObjectOfType<ContextStateUIDisplay>(true);
         }
+        if (contextCubeHighlight == null)
+        {
+            contextCubeHighlight = FindObjectOfType<GazeHighlight>(true);
+        }
 
         if (cubeDisplay == null)
         {
@@ -48,6 +53,14 @@ public class ContextDebugTester : MonoBehaviour
         if (uiDisplay == null)
         {
             Debug.LogWarning("[CTX] ContextStateUIDisplay reference is missing.");
+        }
+        if (contextCubeHighlight == null)
+        {
+            Debug.LogWarning("[CTX] contextCubeHighlight is missing. Cube will keep gaze red/green behavior.");
+        }
+        else if (!contextCubeHighlight.UsesContextStateColor)
+        {
+            Debug.LogWarning("[CTX] contextCubeHighlight has 'Use Context State Color' OFF. Cube will show only gaze red/green.");
         }
 
         InvokeRepeating(nameof(EvaluateContext), 0.1f, 0.1f);
@@ -88,6 +101,7 @@ public class ContextDebugTester : MonoBehaviour
 
         cubeDisplay?.UpdateState(result);
         uiDisplay?.UpdateState(result);
+        contextCubeHighlight?.SetContextState(result.state);
 
     }
 }

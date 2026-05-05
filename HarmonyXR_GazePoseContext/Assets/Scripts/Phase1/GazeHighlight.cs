@@ -4,11 +4,19 @@ public class GazeHighlight : MonoBehaviour
 {
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
+    [Header("Context State Override")]
+    [SerializeField] private bool useContextStateColor;
+    [SerializeField] private Color idleColor = Color.white;
+    [SerializeField] private Color engagedColor = Color.green;
+    [SerializeField] private Color transitioningColor = Color.yellow;
+    [SerializeField] private Color distractedColor = Color.red;
+
     private Renderer cachedRenderer;
     private Material cachedMaterial;
     private bool hasBaseColorProperty;
     private bool lastState;
     private bool hasState;
+    public bool UsesContextStateColor => useContextStateColor;
 
     private void Awake()
     {
@@ -36,6 +44,11 @@ public class GazeHighlight : MonoBehaviour
 
     public void SetGazeState(bool isGazed)
     {
+        if (useContextStateColor)
+        {
+            return;
+        }
+
         if (hasState && lastState == isGazed)
         {
             return;
@@ -45,6 +58,34 @@ public class GazeHighlight : MonoBehaviour
         lastState = isGazed;
 
         Color targetColor = isGazed ? Color.green : Color.red;
+        ApplyColor(targetColor);
+    }
+
+    public void SetContextState(ContextState state)
+    {
+        if (!useContextStateColor)
+        {
+            return;
+        }
+
+        Color targetColor;
+        switch (state)
+        {
+            case ContextState.Engaged:
+                targetColor = engagedColor;
+                break;
+            case ContextState.Transitioning:
+                targetColor = transitioningColor;
+                break;
+            case ContextState.Distracted:
+                targetColor = distractedColor;
+                break;
+            case ContextState.Idle:
+            default:
+                targetColor = idleColor;
+                break;
+        }
+
         ApplyColor(targetColor);
     }
 
