@@ -24,21 +24,23 @@ public class ContextFusionEngine
             new ContextRule((gaze, body, hand, spatial) =>
                 gaze.fixation_on_aoi &&
                 gaze.aoi_dwell_ratio > 0.6f &&
-                hand.interaction_frequency > 0.1f &&
+                gaze.saccade_rate_per_s < 1.2f &&
                 (body.posture_label == PostureLabel.Upright || body.posture_label == PostureLabel.LeaningForward),
                 ContextState.Engaged
             ),
 
             new ContextRule((gaze, body, hand, spatial) =>
-                gaze.head_gaze_divergence_deg > 15f ||
-                (body.avg_joint_velocity > 0.1f && hand.interaction_frequency > 0.05f),
+                // Transitional attention: gaze leaves stable focus, but not yet fully distracted/idle.
+                (!gaze.fixation_on_aoi && gaze.aoi_dwell_ratio > 0.10f && gaze.aoi_dwell_ratio <= 0.60f) ||
+                (gaze.saccade_rate_per_s >= 0.8f && gaze.saccade_rate_per_s < 2.2f &&
+                 gaze.aoi_dwell_ratio > 0.10f && gaze.aoi_dwell_ratio < 0.35f),
                 ContextState.Transitioning
             ),
 
             new ContextRule((gaze, body, hand, spatial) =>
                 !gaze.fixation_on_aoi &&
-                gaze.aoi_dwell_ratio < 0.3f &&
-                gaze.head_gaze_divergence_deg > 20f,
+                gaze.aoi_dwell_ratio <= 0.10f &&
+                (gaze.saccade_rate_per_s >= 1.0f || gaze.fixation_duration_s >= 0.4f),
                 ContextState.Distracted
             ),
 

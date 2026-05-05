@@ -11,12 +11,25 @@ public class ContextStateMachine
     public ContextResult Update(ContextResult newResult)
     {
         float now = Time.time;
+        ContextState outputState = currentState;
 
         if (now - stateEnterTime < 0.5f)
         {
             return new ContextResult
             {
                 state = currentState,
+                confidence = newResult.confidence
+            };
+        }
+
+        bool isChangingState = newResult.state != currentState;
+
+        // If fusion explicitly says Transitioning, surface it immediately.
+        if (isChangingState && newResult.state == ContextState.Transitioning)
+        {
+            return new ContextResult
+            {
+                state = ContextState.Transitioning,
                 confidence = newResult.confidence
             };
         }
@@ -36,11 +49,19 @@ public class ContextStateMachine
                     stateEnterTime = now;
                 }
             }
+            
+            // Show candidate stable state color/label while confirming hysteresis.
+            outputState = pendingState;
+        }
+        else
+        {
+            pendingState = currentState;
+            outputState = currentState;
         }
 
         return new ContextResult
         {
-            state = currentState,
+            state = outputState,
             confidence = newResult.confidence
         };
     }

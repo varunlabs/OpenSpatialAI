@@ -3,6 +3,8 @@ using UnityEngine;
 public class ContextDebugTester : MonoBehaviour
 {
     [SerializeField] private SignalSynchroniser signalSynchroniser;
+    [SerializeField] private CubeStateDisplay cubeDisplay;
+    [SerializeField] private ContextStateUIDisplay uiDisplay;
 
     private GazeFeatureExtractor gazeExtractor;
     private BodyFeatureExtractor bodyExtractor;
@@ -12,8 +14,6 @@ public class ContextDebugTester : MonoBehaviour
     private ContextStateMachine stateMachine;
     private ContextLogger logger;
 
-    private long previousTimestamp;
-    private bool hasPrev;
 
     private void Awake()
     {
@@ -31,6 +31,23 @@ public class ContextDebugTester : MonoBehaviour
         if (signalSynchroniser == null)
         {
             signalSynchroniser = FindObjectOfType<SignalSynchroniser>();
+        }
+        if (cubeDisplay == null)
+        {
+            cubeDisplay = FindObjectOfType<CubeStateDisplay>(true);
+        }
+        if (uiDisplay == null)
+        {
+            uiDisplay = FindObjectOfType<ContextStateUIDisplay>(true);
+        }
+
+        if (cubeDisplay == null)
+        {
+            Debug.LogWarning("[CTX] CubeStateDisplay reference is missing.");
+        }
+        if (uiDisplay == null)
+        {
+            Debug.LogWarning("[CTX] ContextStateUIDisplay reference is missing.");
         }
 
         InvokeRepeating(nameof(EvaluateContext), 0.1f, 0.1f);
@@ -59,12 +76,18 @@ public class ContextDebugTester : MonoBehaviour
         logger.Log(frame, result);
 
         Debug.Log(
-            "[Context] state=" + result.state +
-            ", confidence=" + result.confidence.ToString("F2") +
-            ", timestamp=" + frame.timestamp_ms
+            "[CTX] raw=" + fusionResult.state +
+            " -> final=" + result.state +
+            " | dwell=" + gaze.aoi_dwell_ratio.ToString("F3") +
+            ", sacc=" + gaze.saccade_rate_per_s.ToString("F3") +
+            ", fixOnAOI=" + gaze.fixation_on_aoi +
+            ", fixDur=" + gaze.fixation_duration_s.ToString("F3") +
+            ", bodyVel=" + body.avg_joint_velocity.ToString("F3") +
+            ", handFreq=" + hand.interaction_frequency.ToString("F3")
         );
 
-        previousTimestamp = frame.timestamp_ms;
-        hasPrev = true;
+        cubeDisplay?.UpdateState(result);
+        uiDisplay?.UpdateState(result);
+
     }
 }
