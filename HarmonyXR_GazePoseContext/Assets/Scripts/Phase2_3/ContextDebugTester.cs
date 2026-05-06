@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 public class ContextDebugTester : MonoBehaviour
 {
@@ -14,6 +15,11 @@ public class ContextDebugTester : MonoBehaviour
     private ContextFusionEngine fusionEngine;
     private ContextStateMachine stateMachine;
     private ContextLogger logger;
+    
+    public event Action<ContextResult, SpatialContextVector, SignalFrame> ContextEvaluated;
+    public ContextResult LatestResult { get; private set; }
+    public SpatialContextVector LatestSpatial { get; private set; }
+    public SignalFrame LatestFrame { get; private set; }
 
 
     private void Awake()
@@ -87,6 +93,10 @@ public class ContextDebugTester : MonoBehaviour
         var fusionResult = fusionEngine.Evaluate(gaze, body, hand, spatial);
         var result = stateMachine.Update(fusionResult);
         logger.Log(frame, result);
+        LatestResult = result;
+        LatestSpatial = spatial;
+        LatestFrame = frame;
+        ContextEvaluated?.Invoke(result, spatial, frame);
 
         Debug.Log(
             "[CTX] raw=" + fusionResult.state +
