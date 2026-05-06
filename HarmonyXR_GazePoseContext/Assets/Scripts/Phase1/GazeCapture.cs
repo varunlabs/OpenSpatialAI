@@ -125,7 +125,15 @@ public class GazeCapture : MonoBehaviour
         {
             if (hit.collider.CompareTag("AOI"))
             {
-                aoi_hit = hit.collider.gameObject.name;
+                AOIMarker marker = hit.collider.GetComponent<AOIMarker>();
+                if (marker == null)
+                {
+                    marker = hit.collider.GetComponentInParent<AOIMarker>();
+                }
+
+                aoi_hit = marker != null && !string.IsNullOrWhiteSpace(marker.AoiName)
+                    ? marker.AoiName
+                    : hit.collider.gameObject.name;
                 currentHighlight = ResolveGazeHighlight(hit.collider);
             }
         }
