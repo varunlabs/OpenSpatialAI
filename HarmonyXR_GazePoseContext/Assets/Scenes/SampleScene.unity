@@ -2330,6 +2330,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   contextSource: {fileID: 2054315258}
+  enableFallbackSimulation: 1
+  simulatedState: 2
+  simulatedBoundary: 0
+  simulatedPosture: 0
+  simulatedConfidence: 0.8
 --- !u!4 &990872512
 Transform:
   m_ObjectHideFlags: 0
