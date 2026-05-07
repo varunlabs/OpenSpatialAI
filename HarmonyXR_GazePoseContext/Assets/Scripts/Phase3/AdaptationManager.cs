@@ -133,29 +133,77 @@ public class AdaptationManager : MonoBehaviour
         }
 
         ResetVisualState();
-        activeBehavior = StartCoroutine(RunBehavior(snapshot));
+        activeBehavior = StartCoroutine(OnContextStateChanged(snapshot.state, snapshot.boundaryType));
     }
 
-    private IEnumerator RunBehavior(XRContextSnapshot snapshot)
+    private IEnumerator OnContextStateChanged(ContextState newState, BoundaryType boundaryType)
     {
-        switch (snapshot.state)
+        switch (newState)
         {
-            case ContextState.Engaged:
-                yield return StartCoroutine(EngagedBehavior(snapshot));
-                break;
             case ContextState.Distracted:
-                yield return StartCoroutine(DistractedBehavior(snapshot));
+                yield return StartCoroutine(DispatchDistractedByBoundary(boundaryType));
                 break;
             case ContextState.Transitioning:
-                yield return StartCoroutine(TransitioningBehavior(snapshot));
+                yield return StartCoroutine(DispatchTransitioningByBoundary(boundaryType));
+                break;
+            case ContextState.Engaged:
+                yield return StartCoroutine(DispatchEngagedByBoundary(boundaryType));
                 break;
             case ContextState.Idle:
-                yield return StartCoroutine(IdleBehavior(snapshot));
+                yield return StartCoroutine(DispatchIdleByBoundary(boundaryType));
+                break;
+            default:
+                yield break;
+        }
+    }
+
+    private IEnumerator DispatchDistractedByBoundary(BoundaryType boundaryType)
+    {
+        switch (boundaryType)
+        {
+            case BoundaryType.Stationary:
+            case BoundaryType.Custom:
+                yield return StartCoroutine(ShowVisualNudge());
+                break;
+            case BoundaryType.RoomScale:
+                yield return StartCoroutine(PlaySpatialAudioCue());
+                break;
+            case BoundaryType.Passthrough:
+                yield return StartCoroutine(ShowMinimalArOverlay());
+                break;
+            default:
+                yield return StartCoroutine(ShowVisualNudge());
                 break;
         }
     }
 
-    private IEnumerator EngagedBehavior(XRContextSnapshot snapshot)
+    private IEnumerator DispatchTransitioningByBoundary(BoundaryType boundaryType)
+    {
+        switch (boundaryType)
+        {
+            case BoundaryType.RoomScale:
+                yield return StartCoroutine(MoveContentToGazeDirection());
+                break;
+            case BoundaryType.Stationary:
+            case BoundaryType.Custom:
+            case BoundaryType.Passthrough:
+            default:
+                yield return StartCoroutine(PreloadNextTaskPanel());
+                break;
+        }
+    }
+
+    private IEnumerator DispatchEngagedByBoundary(BoundaryType boundaryType)
+    {
+        yield return StartCoroutine(EngagedBehavior(boundaryType));
+    }
+
+    private IEnumerator DispatchIdleByBoundary(BoundaryType boundaryType)
+    {
+        yield return StartCoroutine(IdleBehavior(boundaryType));
+    }
+
+    private IEnumerator EngagedBehavior(BoundaryType boundaryType)
     {
         if (vignette != null)
         {
@@ -163,7 +211,7 @@ public class AdaptationManager : MonoBehaviour
             vignette.intensity.Override(engagedVignetteIntensity);
         }
 
-        if (snapshot.boundaryType == BoundaryType.RoomScale && navigationHintsRoot != null)
+        if (boundaryType == BoundaryType.RoomScale && navigationHintsRoot != null)
         {
             navigationHintsRoot.SetActive(false);
         }
@@ -171,46 +219,84 @@ public class AdaptationManager : MonoBehaviour
         yield break;
     }
 
-    private IEnumerator DistractedBehavior(XRContextSnapshot snapshot)
+    private IEnumerator ShowVisualNudge()
     {
         yield return new WaitForSeconds(1.5f);
 
-        bool roomScale = snapshot.boundaryType == BoundaryType.RoomScale;
-
-        if (roomScale)
+        if (distractedEdgePanel != null)
         {
-            if (spatialCueSource != null)
-            {
-                if (taskAreaAnchor != null)
-                {
-                    spatialCueSource.transform.position = taskAreaAnchor.position;
-                }
-
-                spatialCueSource.spatialBlend = 1f;
-                spatialCueSource.Play();
-            }
+            distractedEdgePanel.gameObject.SetActive(true);
+            distractedEdgePanel.alpha = 1f;
         }
-        else
-        {
-            if (distractedEdgePanel != null)
-            {
-                distractedEdgePanel.gameObject.SetActive(true);
-                distractedEdgePanel.alpha = 1f;
-            }
 
-            if (distractedArrow != null && taskAreaAnchor != null && userHead != null)
+        if (distractedArrow != null && taskAreaAnchor != null && userHead != null)
+        {
+            Vector3 flatDir = taskAreaAnchor.position - userHead.position;
+            flatDir.y = 0f;
+            if (flatDir.sqrMagnitude > 0.0001f)
             {
-                Vector3 flatDir = taskAreaAnchor.position - userHead.position;
-                flatDir.y = 0f;
-                if (flatDir.sqrMagnitude > 0.0001f)
-                {
-                    distractedArrow.rotation = Quaternion.LookRotation(flatDir.normalized);
-                }
+                distractedArrow.rotation = Quaternion.LookRotation(flatDir.normalized);
             }
         }
     }
 
-    private IEnumerator TransitioningBehavior(XRContextSnapshot snapshot)
+    private IEnumerator PlaySpatialAudioCue()
+    {
+        yield return new WaitForSeconds(1.5f);
+
+        if (spatialCueSource != null)
+        {
+            if (taskAreaAnchor != null)
+            {
+                spatialCueSource.transform.position = taskAreaAnchor.position;
+            }
+
+            spatialCueSource.spatialBlend = 1f;
+            spatialCueSource.Play();
+        }
+    }
+
+    private IEnumerator ShowMinimalArOverlay()
+    {
+        // Minimal AR overlay placeholder reuses the edge panel in passthrough mode.
+        if (distractedEdgePanel != null)
+        {
+            distractedEdgePanel.gameObject.SetActive(true);
+            distractedEdgePanel.alpha = 0.6f;
+        }
+
+        yield break;
+    }
+
+    private IEnumerator PreloadNextTaskPanel()
+    {
+        if (nextTaskPanel != null)
+        {
+            nextTaskPanel.gameObject.SetActive(true);
+            nextTaskPanel.alpha = 0f;
+        }
+        
+        if (currentTaskPanel != null)
+        {
+            lastTaskPanelPosition = currentTaskPanel.transform.position;
+            currentTaskPanel.alpha = 0.7f;
+        }
+
+        if (nextTaskPanel != null)
+        {
+            float t = 0f;
+            while (t < 0.4f)
+            {
+                t += Time.deltaTime;
+                nextTaskPanel.alpha = Mathf.Lerp(0f, 1f, t / 0.4f);
+                yield return null;
+            }
+
+            nextTaskPanel.alpha = 1f;
+        }
+    }
+
+    private IEnumerator MoveContentToGazeDirection()
     {
         if (nextTaskPanel != null)
         {
@@ -218,17 +304,7 @@ public class AdaptationManager : MonoBehaviour
             nextTaskPanel.alpha = 0f;
         }
 
-        bool roomScale = snapshot.boundaryType == BoundaryType.RoomScale;
-
-        if (!roomScale)
-        {
-            if (currentTaskPanel != null)
-            {
-                lastTaskPanelPosition = currentTaskPanel.transform.position;
-                currentTaskPanel.alpha = 0.7f;
-            }
-        }
-        else if (nextTaskPanel != null && userHead != null)
+        if (nextTaskPanel != null && userHead != null)
         {
             Vector3 targetPos = userHead.position + userHead.forward * 2f;
             nextTaskPanel.transform.position = targetPos;
@@ -249,14 +325,14 @@ public class AdaptationManager : MonoBehaviour
         }
     }
 
-    private IEnumerator IdleBehavior(XRContextSnapshot snapshot)
+    private IEnumerator IdleBehavior(BoundaryType boundaryType)
     {
         if (restPanel != null)
         {
             restPanel.SetActive(true);
         }
 
-        if (snapshot.boundaryType == BoundaryType.RoomScale && floorArrow != null && userHead != null)
+        if (boundaryType == BoundaryType.RoomScale && floorArrow != null && userHead != null)
         {
             Transform nearest = FindNearestTaskObject(userHead.position);
             if (nearest != null)
