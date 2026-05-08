@@ -74,6 +74,7 @@ public class DebugOverlayController : MonoBehaviour
             appShell.ContextSnapshotUpdated += OnContextSnapshotUpdated;
         }
 
+        EnsureOverlayScaffold();
         BuildTimelineUi();
         if (worldSpaceCanvas != null)
         {
@@ -200,7 +201,7 @@ public class DebugOverlayController : MonoBehaviour
 
         if (contextStateText != null)
         {
-            contextStateText.text = latestSnapshot.state.ToString();
+            contextStateText.text = "State: " + latestSnapshot.state;
             contextStateText.color = StateColor(latestSnapshot.state);
         }
 
@@ -211,39 +212,46 @@ public class DebugOverlayController : MonoBehaviour
 
         if (confidenceText != null)
         {
-            confidenceText.text = (latestSnapshot.confidence * 100f).ToString("F0") + "%";
+            confidenceText.text = "Confidence: " + (latestSnapshot.confidence * 100f).ToString("F0") + "%";
         }
 
         if (boundaryText != null)
         {
-            boundaryText.text = latestSnapshot.boundaryType.ToString();
+            boundaryText.text = "Boundary: " + latestSnapshot.boundaryType;
         }
 
         if (postureModeText != null)
         {
-            postureModeText.text = latestSnapshot.postureMode.ToString();
+            postureModeText.text = "Posture Mode: " + latestSnapshot.postureMode;
         }
 
         if (lastFiveAoiText != null)
         {
-            lastFiveAoiText.text = string.Join("\n", lastFiveAois);
+            if (lastFiveAois.Count == 0)
+            {
+                lastFiveAoiText.text = "AOI (Last 5): -";
+            }
+            else
+            {
+                lastFiveAoiText.text = "AOI (Last 5):\n- " + string.Join("\n- ", lastFiveAois);
+            }
         }
 
         if (fixationDurationText != null)
         {
-            fixationDurationText.text = latestFrame.fixation_duration_s.ToString("F2") + " s";
+            fixationDurationText.text = "Fixation: " + latestFrame.fixation_duration_s.ToString("F2") + " s";
         }
 
         if (bodyPostureClassText != null)
         {
-            bodyPostureClassText.text = string.IsNullOrWhiteSpace(latestFrame.posture_class)
+            bodyPostureClassText.text = "Posture Class: " + (string.IsNullOrWhiteSpace(latestFrame.posture_class)
                 ? "unknown"
-                : latestFrame.posture_class;
+                : latestFrame.posture_class);
         }
 
         if (interactionCountText != null)
         {
-            interactionCountText.text = latestFrame.interaction_count_10s.ToString();
+            interactionCountText.text = "Interactions (10s): " + latestFrame.interaction_count_10s;
         }
 
         RefreshTimelineUi();
@@ -251,6 +259,21 @@ public class DebugOverlayController : MonoBehaviour
 
     private void EnqueueAoi(string aoi)
     {
+        if (string.IsNullOrWhiteSpace(aoi))
+        {
+            return;
+        }
+
+        if (lastFiveAois.Count > 0)
+        {
+            string[] existing = lastFiveAois.ToArray();
+            string mostRecent = existing[existing.Length - 1];
+            if (string.Equals(mostRecent, aoi, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
         lastFiveAois.Enqueue(aoi);
         while (lastFiveAois.Count > 5)
         {
@@ -338,5 +361,126 @@ public class DebugOverlayController : MonoBehaviour
             default:
                 return new Color(0.60f, 0.60f, 0.60f); // gray
         }
+    }
+
+    private void EnsureOverlayScaffold()
+    {
+        if (worldSpaceCanvas == null)
+        {
+            GameObject canvasGo = new GameObject("Phase3_DebugOverlayCanvas");
+            worldSpaceCanvas = canvasGo.AddComponent<Canvas>();
+            worldSpaceCanvas.renderMode = RenderMode.WorldSpace;
+            worldSpaceCanvas.worldCamera = Camera.main;
+
+            canvasGo.AddComponent<CanvasScaler>();
+            canvasGo.AddComponent<GraphicRaycaster>();
+
+            RectTransform canvasRt = worldSpaceCanvas.GetComponent<RectTransform>();
+            canvasRt.sizeDelta = new Vector2(600f, 440f);
+            canvasRt.localScale = Vector3.one * 0.0015f;
+        }
+
+        Transform root = worldSpaceCanvas.transform;
+        RectTransform panel = EnsureUiImage("Panel", root, new Vector2(600f, 440f), new Color(0.06f, 0.06f, 0.08f, 0.82f));
+        panel.anchoredPosition = Vector2.zero;
+
+        float y = -28f;
+        contextStateText = EnsureField(contextStateText, "State", root, ref y);
+        confidenceText = EnsureField(confidenceText, "Confidence", root, ref y);
+        boundaryText = EnsureField(boundaryText, "Boundary", root, ref y);
+        postureModeText = EnsureField(postureModeText, "Posture", root, ref y);
+        fixationDurationText = EnsureField(fixationDurationText, "Fixation", root, ref y);
+        bodyPostureClassText = EnsureField(bodyPostureClassText, "Posture Class", root, ref y);
+        interactionCountText = EnsureField(interactionCountText, "Interactions", root, ref y);
+        lastFiveAoiText = EnsureField(lastFiveAoiText, "Last AOIs", root, ref y, 120f);
+
+        if (confidenceFill == null)
+        {
+            RectTransform bg = EnsureUiImage("ConfidenceBarBg", root, new Vector2(220f, 14f), new Color(0.2f, 0.2f, 0.2f, 0.9f));
+            bg.anchoredPosition = new Vector2(170f, -60f);
+
+            GameObject fillGo = new GameObject("ConfidenceBarFill");
+            fillGo.transform.SetParent(bg, false);
+            Image fill = fillGo.AddComponent<Image>();
+            fill.color = new Color(0.18f, 0.72f, 0.92f, 1f);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = 0;
+
+            RectTransform fillRt = fill.rectTransform;
+            fillRt.anchorMin = Vector2.zero;
+            fillRt.anchorMax = Vector2.one;
+            fillRt.offsetMin = Vector2.zero;
+            fillRt.offsetMax = Vector2.zero;
+            confidenceFill = fill;
+        }
+
+        if (timelineSegmentContainer == null)
+        {
+            GameObject timelineRoot = new GameObject("TimelineSegments");
+            timelineRoot.transform.SetParent(root, false);
+            RectTransform rt = timelineRoot.AddComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(520f, 24f);
+            rt.anchoredPosition = new Vector2(0f, -198f);
+            timelineSegmentContainer = rt;
+
+            HorizontalLayoutGroup h = timelineRoot.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 2f;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            h.childForceExpandHeight = true;
+        }
+
+        if (timelineSegmentPrefab == null)
+        {
+            GameObject segGo = new GameObject("TimelineSegmentPrefab");
+            segGo.SetActive(false);
+            segGo.transform.SetParent(root, false);
+            Image img = segGo.AddComponent<Image>();
+            img.color = new Color(0.6f, 0.6f, 0.6f, 1f);
+            RectTransform rt = segGo.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(12f, 24f);
+            timelineSegmentPrefab = img;
+        }
+    }
+
+    private static TMP_Text EnsureField(TMP_Text existing, string label, Transform parent, ref float y, float height = 32f)
+    {
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        GameObject go = new GameObject(label + "_Text");
+        go.transform.SetParent(parent, false);
+        TextMeshProUGUI txt = go.AddComponent<TextMeshProUGUI>();
+        txt.fontSize = 20f;
+        txt.alignment = TextAlignmentOptions.Left;
+        txt.color = new Color(0.92f, 0.94f, 0.98f, 1f);
+        txt.text = label + ": -";
+
+        RectTransform rt = txt.rectTransform;
+        rt.sizeDelta = new Vector2(560f, height);
+        rt.anchoredPosition = new Vector2(0f, y);
+        y -= height;
+        return txt;
+    }
+
+    private static RectTransform EnsureUiImage(string name, Transform parent, Vector2 size, Color color)
+    {
+        Transform child = parent.Find(name);
+        Image img = child != null ? child.GetComponent<Image>() : null;
+        if (img == null)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            img = go.AddComponent<Image>();
+        }
+
+        img.color = color;
+        RectTransform rt = img.rectTransform;
+        rt.sizeDelta = size;
+        return rt;
     }
 }
