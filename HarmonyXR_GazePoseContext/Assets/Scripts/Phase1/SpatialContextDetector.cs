@@ -1,6 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-// Layer 1 sensor script � detects spatial context only, no context inference logic
+// Layer 1 sensor script — detects spatial context only, no context inference logic
 public class SpatialContextDetector : MonoBehaviour
 {
     [Header("Tracking Reference")]
@@ -17,6 +17,11 @@ public class SpatialContextDetector : MonoBehaviour
 
     private void Awake()
     {
+        if (ovrCameraRig == null)
+        {
+            ovrCameraRig = FindObjectOfType<OVRCameraRig>(true);
+        }
+
         posture_mode = "standing";
         boundary_type = "custom";
         calibratedStandingHeightM = defaultStandingHeightM;
@@ -115,9 +120,18 @@ public class SpatialContextDetector : MonoBehaviour
 
     private Transform ResolveHeadAnchor()
     {
+        if (Camera.main != null)
+        {
+            return Camera.main.transform;
+        }
+
         if (ovrCameraRig == null)
         {
-            return null;
+            ovrCameraRig = FindObjectOfType<OVRCameraRig>(true);
+            if (ovrCameraRig == null)
+            {
+                return null;
+            }
         }
 
         if (ovrCameraRig.centerEyeAnchor != null)
@@ -162,3 +176,4 @@ public class SpatialContextDetector : MonoBehaviour
         return !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }
+

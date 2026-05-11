@@ -23,17 +23,19 @@ public class ContextFusionEngine
         {
             new ContextRule((gaze, body, hand, spatial) =>
                 gaze.fixation_on_aoi &&
-                gaze.aoi_dwell_ratio > 0.6f &&
-                gaze.saccade_rate_per_s < 1.2f &&
+                (gaze.fixation_duration_s >= 1.1f || gaze.aoi_dwell_ratio >= 0.16f) &&
+                gaze.saccade_rate_per_s < 0.6f &&
                 (body.posture_label == PostureLabel.Upright || body.posture_label == PostureLabel.LeaningForward),
                 ContextState.Engaged
             ),
 
             new ContextRule((gaze, body, hand, spatial) =>
                 // Transitional attention: gaze leaves stable focus, but not yet fully distracted/idle.
+                (gaze.fixation_on_aoi && gaze.fixation_duration_s >= 0.35f && gaze.fixation_duration_s < 1.1f) ||
+                (gaze.fixation_on_aoi && gaze.aoi_dwell_ratio > 0.02f && gaze.aoi_dwell_ratio < 0.16f) ||
                 (!gaze.fixation_on_aoi && gaze.aoi_dwell_ratio > 0.10f && gaze.aoi_dwell_ratio <= 0.60f) ||
                 (gaze.saccade_rate_per_s >= 0.8f && gaze.saccade_rate_per_s < 2.2f &&
-                 gaze.aoi_dwell_ratio > 0.10f && gaze.aoi_dwell_ratio < 0.35f),
+                 gaze.aoi_dwell_ratio > 0.05f && gaze.aoi_dwell_ratio < 0.35f),
                 ContextState.Transitioning
             ),
 

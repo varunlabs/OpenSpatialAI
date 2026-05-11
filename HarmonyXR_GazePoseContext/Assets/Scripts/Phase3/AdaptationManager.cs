@@ -1,5 +1,7 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -7,6 +9,21 @@ public class AdaptationManager : MonoBehaviour
 {
     [Header("Context Source")]
     [SerializeField] private XRAppShellController appShell;
+
+    [Header("State Stability")]
+    [SerializeField] private float engagedMinVisibleSeconds = 1.0f;
+    [SerializeField] private float distractedMinVisibleSeconds = 2.25f;
+    [SerializeField] private float transitioningMinVisibleSeconds = 1.75f;
+    [SerializeField] private float idleMinVisibleSeconds = 3.0f;
+    [SerializeField] private float manualUiSuppressSeconds = 1.25f;
+
+    [Header("Headset Controls")]
+    [SerializeField] private bool keepHeadsetControlsVisible = true;
+    [SerializeField] private float headsetUiDistance = 1.75f;
+    [SerializeField] private float headsetUiVerticalOffset = 0.35f;
+    [SerializeField] private RectTransform persistentControlsRoot;
+    [SerializeField] private RectTransform persistentStatsRoot;
+    [SerializeField] private TMP_Text persistentStatsText;
 
     [Header("Engaged")]
     [SerializeField] private Volume globalVolume;
@@ -32,9 +49,20 @@ public class AdaptationManager : MonoBehaviour
     [SerializeField] private Transform uiAnchorRoot;
 
     private Coroutine activeBehavior;
+    private Coroutine queuedStateRoutine;
     private ContextState activeState;
+    private BoundaryType activeBoundaryType;
     private Vignette vignette;
     private Vector3 lastTaskPanelPosition;
+    private ContextDebugTester contextSource;
+    private XRContextSnapshot latestSnapshot;
+    private SignalFrame latestFrame;
+    private GazeFeatureExtractor statsGazeExtractor;
+    private float activeStateStartedAt;
+    private float suppressUiUntilTime;
+    private bool hasQueuedSnapshot;
+    private bool hasAppliedSnapshot;
+    private XRContextSnapshot queuedSnapshot;
 
     private void Start()
     {
@@ -48,8 +76,15 @@ public class AdaptationManager : MonoBehaviour
             userHead = Camera.main.transform;
         }
 
+        statsGazeExtractor = new GazeFeatureExtractor();
+        NormalizePhase3Ui();
+        EnsureHeadsetUiIsReadable();
+        EnsurePersistentHeadsetControls();
+        EnsurePersistentStatsPanel();
         CacheEffects();
         ResetVisualState();
+        KeepPersistentControlsVisible();
+        UpdatePersistentStatsPanel();
 
         if (appShell == null)
         {
@@ -68,12 +103,26 @@ public class AdaptationManager : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        KeepPersistentControlsVisible();
+        HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
+        UpdatePersistentStatsPanel();
+    }
+
     public void OnContinuePressed()
     {
-        if (currentTaskPanel != null)
+        suppressUiUntilTime = Time.time + manualUiSuppressSeconds;
+
+        if (keepHeadsetControlsVisible)
+        {
+            HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
+        }
+        else if (currentTaskPanel != null)
         {
             currentTaskPanel.transform.position = lastTaskPanelPosition;
             currentTaskPanel.alpha = 1f;
+            currentTaskPanel.gameObject.SetActive(true);
         }
 
         if (restPanel != null)
@@ -90,6 +139,20 @@ public class AdaptationManager : MonoBehaviour
 
     public void OnTakeBreakPressed()
     {
+        suppressUiUntilTime = Time.time + manualUiSuppressSeconds;
+
+        if (keepHeadsetControlsVisible)
+        {
+            HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
+            if (vignette != null)
+            {
+                vignette.active = true;
+                vignette.intensity.Override(0.25f);
+            }
+
+            return;
+        }
+
         if (restDimOverlay != null)
         {
             restDimOverlay.gameObject.SetActive(true);
@@ -99,13 +162,19 @@ public class AdaptationManager : MonoBehaviour
 
     public void OnRecenterViewPressed()
     {
+        suppressUiUntilTime = Time.time + manualUiSuppressSeconds;
+
         if (uiAnchorRoot == null || userHead == null)
         {
             return;
         }
 
-        uiAnchorRoot.position = userHead.position + userHead.forward * 1.5f;
+        uiAnchorRoot.position = userHead.position + userHead.forward * headsetUiDistance + userHead.up * headsetUiVerticalOffset;
         uiAnchorRoot.rotation = Quaternion.LookRotation(uiAnchorRoot.position - userHead.position);
+        NormalizePhase3Ui();
+        EnsureHeadsetUiIsReadable();
+        KeepPersistentControlsVisible();
+        HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
     }
 
     private void CacheEffects()
@@ -120,20 +189,42 @@ public class AdaptationManager : MonoBehaviour
 
     private void OnContextSnapshotUpdated(XRContextSnapshot snapshot)
     {
-        if (snapshot.state == activeState && activeBehavior != null)
+        latestSnapshot = snapshot;
+        ResolveContextSource();
+
+        if (contextSource != null)
+        {
+            latestFrame = contextSource.LatestFrame;
+        }
+
+        if (!hasAppliedSnapshot)
+        {
+            ApplySnapshot(snapshot);
+            return;
+        }
+
+        if (snapshot.state == activeState && snapshot.boundaryType == activeBoundaryType)
         {
             return;
         }
 
-        activeState = snapshot.state;
-
-        if (activeBehavior != null)
+        if (Time.time < suppressUiUntilTime)
         {
-            StopCoroutine(activeBehavior);
+            queuedSnapshot = snapshot;
+            hasQueuedSnapshot = true;
+            StartQueuedStateRoutineIfNeeded();
+            return;
         }
 
-        ResetVisualState();
-        activeBehavior = StartCoroutine(OnContextStateChanged(snapshot.state, snapshot.boundaryType));
+        if (Time.time - activeStateStartedAt < GetMinimumVisibleSeconds(activeState))
+        {
+            queuedSnapshot = snapshot;
+            hasQueuedSnapshot = true;
+            StartQueuedStateRoutineIfNeeded();
+            return;
+        }
+
+        ApplySnapshot(snapshot);
     }
 
     private IEnumerator OnContextStateChanged(ContextState newState, BoundaryType boundaryType)
@@ -203,6 +294,87 @@ public class AdaptationManager : MonoBehaviour
         yield return StartCoroutine(IdleBehavior(boundaryType));
     }
 
+    private void ApplySnapshot(XRContextSnapshot snapshot)
+    {
+        hasAppliedSnapshot = true;
+        activeState = snapshot.state;
+        activeBoundaryType = snapshot.boundaryType;
+        activeStateStartedAt = Time.time;
+
+        if (activeBehavior != null)
+        {
+            StopCoroutine(activeBehavior);
+            activeBehavior = null;
+        }
+
+        ResetVisualState();
+        EnsureHeadsetUiIsReadable();
+        KeepPersistentControlsVisible();
+        EnsurePersistentStatsPanel();
+        UpdatePersistentStatsPanel();
+        activeBehavior = StartCoroutine(RunBehavior(snapshot.state, snapshot.boundaryType));
+        Debug.Log("[Phase3] Visual state => " + snapshot.state + " (" + snapshot.boundaryType + ")");
+    }
+
+    private IEnumerator RunBehavior(ContextState state, BoundaryType boundaryType)
+    {
+        yield return StartCoroutine(OnContextStateChanged(state, boundaryType));
+        activeBehavior = null;
+    }
+
+    private void StartQueuedStateRoutineIfNeeded()
+    {
+        if (queuedStateRoutine == null)
+        {
+            queuedStateRoutine = StartCoroutine(ApplyQueuedSnapshotWhenReady());
+        }
+    }
+
+    private IEnumerator ApplyQueuedSnapshotWhenReady()
+    {
+        while (hasQueuedSnapshot)
+        {
+            float holdRemaining = GetMinimumVisibleSeconds(activeState) - (Time.time - activeStateStartedAt);
+            float suppressRemaining = suppressUiUntilTime - Time.time;
+            float waitTime = Mathf.Max(holdRemaining, suppressRemaining);
+            if (waitTime > 0f)
+            {
+                yield return new WaitForSeconds(waitTime);
+            }
+
+            if (!hasQueuedSnapshot)
+            {
+                break;
+            }
+
+            XRContextSnapshot snapshotToApply = queuedSnapshot;
+            hasQueuedSnapshot = false;
+
+            if (snapshotToApply.state != activeState || snapshotToApply.boundaryType != activeBoundaryType)
+            {
+                ApplySnapshot(snapshotToApply);
+            }
+        }
+
+        queuedStateRoutine = null;
+    }
+
+    private float GetMinimumVisibleSeconds(ContextState state)
+    {
+        switch (state)
+        {
+            case ContextState.Engaged:
+                return engagedMinVisibleSeconds;
+            case ContextState.Distracted:
+                return distractedMinVisibleSeconds;
+            case ContextState.Transitioning:
+                return transitioningMinVisibleSeconds;
+            case ContextState.Idle:
+            default:
+                return idleMinVisibleSeconds;
+        }
+    }
+
     private IEnumerator EngagedBehavior(BoundaryType boundaryType)
     {
         if (vignette != null)
@@ -270,6 +442,11 @@ public class AdaptationManager : MonoBehaviour
 
     private IEnumerator PreloadNextTaskPanel()
     {
+        if (keepHeadsetControlsVisible)
+        {
+            yield break;
+        }
+
         if (nextTaskPanel != null)
         {
             nextTaskPanel.gameObject.SetActive(true);
@@ -298,6 +475,11 @@ public class AdaptationManager : MonoBehaviour
 
     private IEnumerator MoveContentToGazeDirection()
     {
+        if (keepHeadsetControlsVisible)
+        {
+            yield break;
+        }
+
         if (nextTaskPanel != null)
         {
             nextTaskPanel.gameObject.SetActive(true);
@@ -327,7 +509,7 @@ public class AdaptationManager : MonoBehaviour
 
     private IEnumerator IdleBehavior(BoundaryType boundaryType)
     {
-        if (restPanel != null)
+        if (restPanel != null && !keepHeadsetControlsVisible)
         {
             restPanel.SetActive(true);
         }
@@ -400,7 +582,15 @@ public class AdaptationManager : MonoBehaviour
 
         if (currentTaskPanel != null)
         {
-            currentTaskPanel.alpha = 1f;
+            if (keepHeadsetControlsVisible)
+            {
+                currentTaskPanel.alpha = 0f;
+                currentTaskPanel.gameObject.SetActive(false);
+            }
+            else
+            {
+                currentTaskPanel.alpha = 1f;
+            }
         }
 
         if (nextTaskPanel != null)
@@ -424,5 +614,602 @@ public class AdaptationManager : MonoBehaviour
         {
             floorArrow.SetActive(false);
         }
+
+        KeepPersistentControlsVisible();
+        HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
+    }
+
+    private void HideLegacyPanelsWhenPersistentHeadsetUiIsUsed()
+    {
+        if (!keepHeadsetControlsVisible)
+        {
+            return;
+        }
+
+        HideCanvasGroup(currentTaskPanel);
+        HideCanvasGroup(nextTaskPanel);
+
+        if (restPanel != null)
+        {
+            restPanel.SetActive(false);
+        }
+
+        if (restDimOverlay != null)
+        {
+            restDimOverlay.alpha = 0f;
+            restDimOverlay.interactable = false;
+            restDimOverlay.blocksRaycasts = false;
+            restDimOverlay.gameObject.SetActive(false);
+        }
+
+        if (floorArrow != null)
+        {
+            floorArrow.SetActive(false);
+        }
+
+        HideKnownLegacyPanelObject("CurrentTaskPanel");
+        HideKnownLegacyPanelObject("CurrentTaskPanel ");
+        HideKnownLegacyPanelObject("NextTaskPanel");
+        HideKnownLegacyPanelObject("NextTaskPanel ");
+        HideKnownLegacyPanelObject("RestPanel");
+        HideKnownLegacyPanelObject("RestDimOverlay");
+        HideLegacyUiUnderAnchor();
+    }
+
+    private static void HideCanvasGroup(CanvasGroup group)
+    {
+        if (group == null)
+        {
+            return;
+        }
+
+        group.alpha = 0f;
+        group.interactable = false;
+        group.blocksRaycasts = false;
+        group.gameObject.SetActive(false);
+    }
+
+    private static void HideKnownLegacyPanelObject(string objectName)
+    {
+        Transform[] allTransforms = FindObjectsOfType<Transform>(true);
+        for (int i = 0; i < allTransforms.Length; i++)
+        {
+            Transform t = allTransforms[i];
+            if (t != null && string.Equals(t.name.Trim(), objectName.Trim(), System.StringComparison.OrdinalIgnoreCase))
+            {
+                t.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private void HideLegacyUiUnderAnchor()
+    {
+        if (uiAnchorRoot == null)
+        {
+            return;
+        }
+
+        Transform[] children = uiAnchorRoot.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < children.Length; i++)
+        {
+            Transform child = children[i];
+            if (child == null || child == uiAnchorRoot)
+            {
+                continue;
+            }
+
+            if (IsPersistentHeadsetUi(child))
+            {
+                continue;
+            }
+
+            if (child.GetComponent<Canvas>() != null)
+            {
+                continue;
+            }
+
+            if (child.GetComponent<CanvasGroup>() != null || child.GetComponent<Image>() != null)
+            {
+                child.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private bool IsPersistentHeadsetUi(Transform candidate)
+    {
+        if (candidate == null)
+        {
+            return false;
+        }
+
+        if (persistentControlsRoot != null &&
+            (candidate == persistentControlsRoot || candidate.IsChildOf(persistentControlsRoot)))
+        {
+            return true;
+        }
+
+        return persistentStatsRoot != null &&
+               (candidate == persistentStatsRoot || candidate.IsChildOf(persistentStatsRoot));
+    }
+
+    private void NormalizePhase3Ui()
+    {
+        EnsureUiAnchorRoot();
+
+        if (uiAnchorRoot == null)
+        {
+            return;
+        }
+
+        if (userHead == null && Camera.main != null)
+        {
+            userHead = Camera.main.transform;
+        }
+
+        Canvas rootCanvas = uiAnchorRoot.GetComponent<Canvas>();
+        if (rootCanvas == null)
+        {
+            rootCanvas = uiAnchorRoot.GetComponentInChildren<Canvas>(true);
+        }
+
+        if (rootCanvas != null)
+        {
+            rootCanvas.renderMode = RenderMode.WorldSpace;
+            rootCanvas.worldCamera = Camera.main;
+            rootCanvas.overrideSorting = true;
+            rootCanvas.sortingOrder = 50;
+
+            RectTransform canvasRect = rootCanvas.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(900f, 600f);
+            canvasRect.localScale = Vector3.one * 0.0012f;
+            canvasRect.localPosition = Vector3.zero;
+            canvasRect.localRotation = Quaternion.identity;
+        }
+
+        if (userHead != null)
+        {
+            Vector3 flatForward = Vector3.ProjectOnPlane(userHead.forward, Vector3.up).normalized;
+            if (flatForward.sqrMagnitude < 0.0001f)
+            {
+                flatForward = Vector3.forward;
+            }
+
+            uiAnchorRoot.position = userHead.position + flatForward * headsetUiDistance + Vector3.up * headsetUiVerticalOffset;
+            uiAnchorRoot.rotation = Quaternion.LookRotation(uiAnchorRoot.position - userHead.position, Vector3.up);
+        }
+
+        NormalizePanelRect(restPanel, new Vector2(420f, 220f), new Vector3(0f, 0f, 0.15f));
+        NormalizePanelRect(currentTaskPanel != null ? currentTaskPanel.gameObject : null, new Vector2(420f, 220f), new Vector3(0f, 0f, 0.10f));
+        NormalizePanelRect(nextTaskPanel != null ? nextTaskPanel.gameObject : null, new Vector2(420f, 220f), new Vector3(0f, 0f, 0.10f));
+        NormalizePanelRect(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null, new Vector2(280f, 160f), new Vector3(0.28f, 0.12f, 0.12f));
+        HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
+
+        if (restDimOverlay != null)
+        {
+            RectTransform dimRect = restDimOverlay.GetComponent<RectTransform>();
+            if (dimRect != null)
+            {
+                dimRect.anchorMin = new Vector2(0.5f, 0.5f);
+                dimRect.anchorMax = new Vector2(0.5f, 0.5f);
+                dimRect.pivot = new Vector2(0.5f, 0.5f);
+                dimRect.sizeDelta = new Vector2(460f, 260f);
+                dimRect.anchoredPosition = Vector2.zero;
+                dimRect.localPosition = new Vector3(0f, 0f, 0.05f);
+            }
+        }
+    }
+
+    private void EnsureUiAnchorRoot()
+    {
+        if (uiAnchorRoot != null)
+        {
+            return;
+        }
+
+        GameObject existing = GameObject.Find("UIAnchorRoot");
+        if (existing == null)
+        {
+            existing = new GameObject("UIAnchorRoot");
+        }
+
+        uiAnchorRoot = existing.transform;
+    }
+
+    private void EnsureHeadsetUiIsReadable()
+    {
+        EnsureCanvasInputComponents();
+        RepairCanvasGroups();
+        RepairPanelBackground(restPanel);
+        RepairPanelBackground(currentTaskPanel != null ? currentTaskPanel.gameObject : null);
+        RepairPanelBackground(nextTaskPanel != null ? nextTaskPanel.gameObject : null);
+        RepairPanelBackground(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null);
+        RepairText(restPanel);
+        RepairText(currentTaskPanel != null ? currentTaskPanel.gameObject : null);
+        RepairText(nextTaskPanel != null ? nextTaskPanel.gameObject : null);
+        RepairText(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null);
+        RepairButtons(restPanel);
+    }
+
+    private void EnsureCanvasInputComponents()
+    {
+        if (uiAnchorRoot == null)
+        {
+            return;
+        }
+
+        Canvas canvas = uiAnchorRoot.GetComponentInChildren<Canvas>(true);
+        if (canvas == null)
+        {
+            GameObject canvasGo = new GameObject("Phase3_RuntimeHeadsetCanvas");
+            canvasGo.transform.SetParent(uiAnchorRoot, false);
+            canvas = canvasGo.AddComponent<Canvas>();
+            canvasGo.AddComponent<CanvasScaler>();
+        }
+
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 50;
+
+        if (canvas.GetComponent<GraphicRaycaster>() == null)
+        {
+            canvas.gameObject.AddComponent<GraphicRaycaster>();
+        }
+
+        RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(900f, 600f);
+        canvasRect.localScale = Vector3.one * 0.0012f;
+        canvasRect.localPosition = Vector3.zero;
+        canvasRect.localRotation = Quaternion.identity;
+    }
+
+    private void RepairCanvasGroups()
+    {
+        RepairCanvasGroup(restPanel);
+        RepairCanvasGroup(currentTaskPanel != null ? currentTaskPanel.gameObject : null);
+        RepairCanvasGroup(nextTaskPanel != null ? nextTaskPanel.gameObject : null);
+        RepairCanvasGroup(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null);
+    }
+
+    private static void RepairCanvasGroup(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        CanvasGroup group = root.GetComponent<CanvasGroup>();
+        if (group != null)
+        {
+            group.interactable = true;
+            group.blocksRaycasts = true;
+        }
+    }
+
+    private static void RepairText(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        TMP_Text[] labels = root.GetComponentsInChildren<TMP_Text>(true);
+        foreach (TMP_Text label in labels)
+        {
+            label.enabled = true;
+            label.color = Color.white;
+            label.fontSize = Mathf.Max(label.fontSize, 22f);
+            label.enableWordWrapping = true;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+
+            RectTransform rect = label.rectTransform;
+            rect.localScale = Vector3.one;
+            rect.sizeDelta = new Vector2(Mathf.Max(rect.sizeDelta.x, 240f), Mathf.Max(rect.sizeDelta.y, 48f));
+        }
+    }
+
+    private static void RepairPanelBackground(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Image image = root.GetComponent<Image>();
+        if (image != null)
+        {
+            image.enabled = true;
+            image.raycastTarget = false;
+            image.color = new Color(0.02f, 0.03f, 0.05f, 0.82f);
+        }
+    }
+
+    private static void RepairButtons(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            RectTransform rect = button.transform as RectTransform;
+            if (rect != null)
+            {
+                rect.sizeDelta = new Vector2(Mathf.Max(rect.sizeDelta.x, 230f), Mathf.Max(rect.sizeDelta.y, 58f));
+                rect.localScale = Vector3.one;
+            }
+
+            Image image = button.targetGraphic as Image;
+            if (image == null)
+            {
+                image = button.GetComponent<Image>();
+                button.targetGraphic = image;
+            }
+
+            if (image != null)
+            {
+                image.enabled = true;
+                image.raycastTarget = true;
+                image.color = new Color(0.08f, 0.12f, 0.18f, 0.92f);
+            }
+
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+            HeadsetUiButton headsetButton = button.GetComponent<HeadsetUiButton>();
+            if (headsetButton == null)
+            {
+                headsetButton = button.gameObject.AddComponent<HeadsetUiButton>();
+            }
+
+            headsetButton.Configure(button, label);
+        }
+    }
+
+    private void EnsurePersistentHeadsetControls()
+    {
+        if (!keepHeadsetControlsVisible)
+        {
+            return;
+        }
+
+        EnsureUiAnchorRoot();
+        EnsureCanvasInputComponents();
+
+        Canvas canvas = uiAnchorRoot.GetComponentInChildren<Canvas>(true);
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (persistentControlsRoot == null)
+        {
+            Transform existing = canvas.transform.Find("Phase3_HeadsetControlsPanel");
+            if (existing != null)
+            {
+                persistentControlsRoot = existing as RectTransform;
+            }
+        }
+
+        if (persistentControlsRoot == null)
+        {
+            GameObject panelGo = new GameObject("Phase3_HeadsetControlsPanel");
+            panelGo.transform.SetParent(canvas.transform, false);
+            persistentControlsRoot = panelGo.AddComponent<RectTransform>();
+            Image panelImage = panelGo.AddComponent<Image>();
+            panelImage.color = new Color(0.02f, 0.03f, 0.05f, 0.78f);
+            panelImage.raycastTarget = false;
+            panelGo.AddComponent<CanvasGroup>();
+
+            CreatePersistentButton("Continue", new Vector2(-250f, 0f), OnContinuePressed);
+            CreatePersistentButton("Take a break", new Vector2(0f, 0f), OnTakeBreakPressed);
+            CreatePersistentButton("Recenter view", new Vector2(250f, 0f), OnRecenterViewPressed);
+        }
+
+        persistentControlsRoot.anchorMin = new Vector2(0.5f, 0.5f);
+        persistentControlsRoot.anchorMax = new Vector2(0.5f, 0.5f);
+        persistentControlsRoot.pivot = new Vector2(0.5f, 0.5f);
+        persistentControlsRoot.sizeDelta = new Vector2(820f, 82f);
+        persistentControlsRoot.anchoredPosition = new Vector2(0f, -195f);
+        persistentControlsRoot.localPosition = new Vector3(0f, -195f, -0.08f);
+        persistentControlsRoot.localRotation = Quaternion.identity;
+        persistentControlsRoot.localScale = Vector3.one;
+        KeepPersistentControlsVisible();
+    }
+
+    private void CreatePersistentButton(string label, Vector2 anchoredPosition, UnityEngine.Events.UnityAction action)
+    {
+        GameObject buttonGo = new GameObject(label + " Button");
+        buttonGo.transform.SetParent(persistentControlsRoot, false);
+
+        RectTransform rect = buttonGo.AddComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(230f, 58f);
+        rect.anchoredPosition = anchoredPosition;
+
+        Image image = buttonGo.AddComponent<Image>();
+        image.color = new Color(0.08f, 0.12f, 0.18f, 0.92f);
+
+        Button button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.onClick.AddListener(action);
+
+        GameObject textGo = new GameObject("Label");
+        textGo.transform.SetParent(buttonGo.transform, false);
+        TextMeshProUGUI text = textGo.AddComponent<TextMeshProUGUI>();
+        text.text = label;
+        text.fontSize = 24f;
+        text.color = Color.white;
+        text.alignment = TextAlignmentOptions.Center;
+        text.enableWordWrapping = true;
+        text.raycastTarget = false;
+
+        RectTransform textRect = text.rectTransform;
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(8f, 4f);
+        textRect.offsetMax = new Vector2(-8f, -4f);
+
+        HeadsetUiButton headsetButton = buttonGo.AddComponent<HeadsetUiButton>();
+        headsetButton.Configure(button, text);
+    }
+
+    private void KeepPersistentControlsVisible()
+    {
+        if (!keepHeadsetControlsVisible || persistentControlsRoot == null)
+        {
+            return;
+        }
+
+        persistentControlsRoot.gameObject.SetActive(true);
+        CanvasGroup group = persistentControlsRoot.GetComponent<CanvasGroup>();
+        if (group != null)
+        {
+            group.alpha = 1f;
+            group.interactable = true;
+            group.blocksRaycasts = true;
+        }
+    }
+
+    private void EnsurePersistentStatsPanel()
+    {
+        EnsureUiAnchorRoot();
+        EnsureCanvasInputComponents();
+
+        Canvas canvas = uiAnchorRoot.GetComponentInChildren<Canvas>(true);
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (persistentStatsRoot == null)
+        {
+            Transform existing = canvas.transform.Find("Phase3_HeadsetStatsPanel");
+            if (existing != null)
+            {
+                persistentStatsRoot = existing as RectTransform;
+                persistentStatsText = existing.GetComponentInChildren<TMP_Text>(true);
+            }
+        }
+
+        if (persistentStatsRoot == null)
+        {
+            GameObject panelGo = new GameObject("Phase3_HeadsetStatsPanel");
+            panelGo.transform.SetParent(canvas.transform, false);
+            persistentStatsRoot = panelGo.AddComponent<RectTransform>();
+
+            Image panelImage = panelGo.AddComponent<Image>();
+            panelImage.color = new Color(0.02f, 0.03f, 0.05f, 0.82f);
+            panelImage.raycastTarget = false;
+
+            CanvasGroup group = panelGo.AddComponent<CanvasGroup>();
+            group.alpha = 1f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            GameObject textGo = new GameObject("StatsText");
+            textGo.transform.SetParent(panelGo.transform, false);
+            persistentStatsText = textGo.AddComponent<TextMeshProUGUI>();
+            persistentStatsText.color = Color.white;
+            persistentStatsText.fontSize = 20f;
+            persistentStatsText.alignment = TextAlignmentOptions.TopLeft;
+            persistentStatsText.enableWordWrapping = true;
+            persistentStatsText.raycastTarget = false;
+
+            RectTransform textRect = persistentStatsText.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(24f, 18f);
+            textRect.offsetMax = new Vector2(-24f, -18f);
+        }
+
+        persistentStatsRoot.gameObject.SetActive(true);
+        persistentStatsRoot.anchorMin = new Vector2(0.5f, 0.5f);
+        persistentStatsRoot.anchorMax = new Vector2(0.5f, 0.5f);
+        persistentStatsRoot.pivot = new Vector2(0.5f, 0.5f);
+        persistentStatsRoot.sizeDelta = new Vector2(760f, 285f);
+        persistentStatsRoot.anchoredPosition = new Vector2(0f, 145f);
+        persistentStatsRoot.localPosition = new Vector3(0f, 145f, -0.09f);
+        persistentStatsRoot.localRotation = Quaternion.identity;
+        persistentStatsRoot.localScale = Vector3.one;
+    }
+
+    private void UpdatePersistentStatsPanel()
+    {
+        if (persistentStatsText == null)
+        {
+            EnsurePersistentStatsPanel();
+        }
+
+        if (persistentStatsText == null)
+        {
+            return;
+        }
+
+        ResolveContextSource();
+        if (contextSource != null)
+        {
+            latestFrame = contextSource.LatestFrame;
+        }
+
+        string aoi = string.IsNullOrWhiteSpace(latestSnapshot.aoiHit) ? latestFrame.aoi_hit : latestSnapshot.aoiHit;
+        if (string.IsNullOrWhiteSpace(aoi))
+        {
+            aoi = "none";
+        }
+
+        GazeFeatureVector gaze = GetLatestGazeFeatures();
+        string posture = string.IsNullOrWhiteSpace(latestFrame.posture_class) ? latestSnapshot.postureMode.ToString() : latestFrame.posture_class;
+        persistentStatsText.text =
+            "STATE    " + latestSnapshot.state + "\n" +
+            "CONF     " + (latestSnapshot.confidence * 100f).ToString("F0") + "%    BOUND  " + latestSnapshot.boundaryType + "\n" +
+            "AOI      " + aoi + "\n" +
+            "POSTURE  " + posture + "\n" +
+            "FIX      " + latestFrame.fixation_duration_s.ToString("F2") + "s    DWELL  " + gaze.aoi_dwell_ratio.ToString("F2") + "\n" +
+            "SACC     " + gaze.saccade_rate_per_s.ToString("F2") + "/s    BODY  " + latestFrame.avg_joint_velocity.ToString("F2") + "\n" +
+            "HAND     " + latestFrame.interaction_count_10s + "    PINCH  " + latestFrame.left_pinch + "/" + latestFrame.right_pinch + "\n" +
+            "DIST     " + latestFrame.nearest_object_dist_m.ToString("F2") + "m";
+    }
+
+    private GazeFeatureVector GetLatestGazeFeatures()
+    {
+        if (statsGazeExtractor == null)
+        {
+            statsGazeExtractor = new GazeFeatureExtractor();
+        }
+
+        return statsGazeExtractor.ExtractFeatures(latestFrame);
+    }
+
+    private void ResolveContextSource()
+    {
+        if (contextSource == null)
+        {
+            contextSource = FindObjectOfType<ContextDebugTester>(true);
+        }
+    }
+
+    private static void NormalizePanelRect(GameObject panelObject, Vector2 size, Vector3 localPosition)
+    {
+        if (panelObject == null)
+        {
+            return;
+        }
+
+        RectTransform rect = panelObject.GetComponent<RectTransform>();
+        if (rect == null)
+        {
+            return;
+        }
+
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = Vector2.zero;
+        rect.localPosition = localPosition;
+        rect.localRotation = Quaternion.identity;
+        rect.localScale = Vector3.one;
     }
 }

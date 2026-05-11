@@ -13,11 +13,13 @@ public class SignalSynchroniser : MonoBehaviour
 
     private void Awake()
     {
+        AutoResolveInputs();
         latestFrame = CreateDefaultFrame();
     }
 
     private void Start()
     {
+        AutoResolveInputs();
         SampleAndSynchronise();
         InvokeRepeating(nameof(SampleAndSynchronise), 0.1f, 0.1f);
     }
@@ -29,6 +31,7 @@ public class SignalSynchroniser : MonoBehaviour
 
     private void SampleAndSynchronise()
     {
+        AutoResolveInputs();
         SignalFrame frame = latestFrame;
 
         frame.timestamp_ms = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -75,6 +78,29 @@ public class SignalSynchroniser : MonoBehaviour
         frame.context_confidence = IsFinite(frame.context_confidence) ? frame.context_confidence : 0f;
 
         latestFrame = frame;
+    }
+
+    private void AutoResolveInputs()
+    {
+        if (gazeCapture == null)
+        {
+            gazeCapture = FindObjectOfType<GazeCapture>(true);
+        }
+
+        if (bodyPoseCapture == null)
+        {
+            bodyPoseCapture = FindObjectOfType<BodyPoseCapture>(true);
+        }
+
+        if (handCapture == null)
+        {
+            handCapture = FindObjectOfType<HandCapture>(true);
+        }
+
+        if (spatialContextDetector == null)
+        {
+            spatialContextDetector = FindObjectOfType<SpatialContextDetector>(true);
+        }
     }
 
     private static SignalFrame CreateDefaultFrame()

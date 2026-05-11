@@ -458,6 +458,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   appShell: {fileID: 145958545}
+  engagedMinVisibleSeconds: 1
+  distractedMinVisibleSeconds: 2.25
+  transitioningMinVisibleSeconds: 1.75
+  idleMinVisibleSeconds: 3
+  manualUiSuppressSeconds: 1.25
+  keepHeadsetControlsVisible: 1
+  headsetUiDistance: 1.75
+  headsetUiVerticalOffset: 0.35
+  persistentControlsRoot: {fileID: 0}
+  persistentStatsRoot: {fileID: 0}
+  persistentStatsText: {fileID: 0}
   globalVolume: {fileID: 123474474}
   engagedVignetteIntensity: 0.05
   navigationHintsRoot: {fileID: 749139938}
@@ -521,7 +532,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   contextSource: {fileID: 0}
+  signalSynchroniser: {fileID: 0}
+  handCapture: {fileID: 0}
+  gazeCapture: {fileID: 0}
+  autoBootstrapHeadsetRig: 1
+  autoBootstrapLiveContext: 1
+  autoAlignTrainingSimulation: 1
+  trainingSceneDistanceFromHead: 2
   enableFallbackSimulation: 1
+  enableHeadsetFallbackControls: 1
+  enableHeadsetQaOverride: 1
+  qaOverrideHoldSeconds: 8
+  preferEngagedStateWhenFallbackStarts: 1
   simulatedState: 2
   simulatedBoundary: 0
   simulatedPosture: 0
@@ -3425,6 +3447,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   appShell: {fileID: 145958545}
   contextSource: {fileID: 0}
+  handCapture: {fileID: 0}
   userHead: {fileID: 346309077}
   worldSpaceCanvas: {fileID: 1784066126}
   distanceFromHead: 1.1

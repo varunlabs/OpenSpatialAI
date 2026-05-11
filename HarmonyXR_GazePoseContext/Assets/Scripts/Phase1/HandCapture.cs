@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.XR;
 
 public class HandCapture : MonoBehaviour
 {
@@ -9,6 +10,8 @@ public class HandCapture : MonoBehaviour
 
     [Header("Pinch Settings")]
     [SerializeField] private float pinchThreshold = 0.7f;
+    [SerializeField] private bool allowControllerInteractionFallback = true;
+    [SerializeField] private float controllerTriggerThreshold = 0.75f;
 
     public bool left_pinch { get; private set; }
     public bool right_pinch { get; private set; }
@@ -22,12 +25,14 @@ public class HandCapture : MonoBehaviour
 
     private void Awake()
     {
+        ResolveHandsIfNeeded();
         ResetOutputs();
         Debug.Log("Test on headset: pinch index+thumb; observe values change");
     }
 
     private void Update()
     {
+        ResolveHandsIfNeeded();
         UpdatePinchStates();
         UpdateInteractionWindow();
         UpdateNearestAoiDistance();
@@ -36,8 +41,15 @@ public class HandCapture : MonoBehaviour
 
     private void UpdatePinchStates()
     {
-        left_pinch = ReadPinchState(leftHand, "Left");
-        right_pinch = ReadPinchState(rightHand, "Right");
+        bool leftHandPinch = ReadPinchState(leftHand, "Left");
+        bool rightHandPinch = ReadPinchState(rightHand, "Right");
+        bool leftControllerSelect = allowControllerInteractionFallback &&
+                                    (ReadControllerSelect(XRNode.LeftHand) || ReadOvrControllerSelect(true));
+        bool rightControllerSelect = allowControllerInteractionFallback &&
+                                     (ReadControllerSelect(XRNode.RightHand) || ReadOvrControllerSelect(false));
+
+        left_pinch = leftHandPinch || leftControllerSelect;
+        right_pinch = rightHandPinch || rightControllerSelect;
 
         bool leftPinchStart = left_pinch && !prevLeftPinch;
         bool rightPinchStart = right_pinch && !prevRightPinch;
@@ -69,7 +81,7 @@ public class HandCapture : MonoBehaviour
         Debug.Log(handLabel + " Hand Tracked: " + hand.IsTracked);
         Debug.Log(handLabel + " Hand HighConfidence: " + hand.IsDataHighConfidence);
 
-        if (!hand.IsTracked || !hand.IsDataHighConfidence)
+        if (!hand.IsTracked)
         {
             return false;
         }
@@ -89,6 +101,58 @@ public class HandCapture : MonoBehaviour
         }
 
         return pinch;
+    }
+
+    private bool ReadControllerSelect(XRNode node)
+    {
+        InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+        if (!device.isValid)
+        {
+            return false;
+        }
+
+        if (device.TryGetFeatureValue(CommonUsages.triggerButton, out bool triggerButton) && triggerButton)
+        {
+            return true;
+        }
+
+        if (device.TryGetFeatureValue(CommonUsages.gripButton, out bool gripButton) && gripButton)
+        {
+            return true;
+        }
+
+        if (device.TryGetFeatureValue(CommonUsages.primaryButton, out bool primaryButton) && primaryButton)
+        {
+            return true;
+        }
+
+        return device.TryGetFeatureValue(CommonUsages.trigger, out float triggerValue) &&
+               IsFinite(triggerValue) &&
+               triggerValue >= controllerTriggerThreshold;
+    }
+
+    private bool ReadOvrControllerSelect(bool left)
+    {
+        OVRInput.Controller controller = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
+        OVRInput.Controller handController = left ? OVRInput.Controller.LHand : OVRInput.Controller.RHand;
+        OVRInput.RawButton indexButton = left ? OVRInput.RawButton.LIndexTrigger : OVRInput.RawButton.RIndexTrigger;
+        OVRInput.RawButton gripButton = left ? OVRInput.RawButton.LHandTrigger : OVRInput.RawButton.RHandTrigger;
+        OVRInput.RawAxis1D indexAxis = left ? OVRInput.RawAxis1D.LIndexTrigger : OVRInput.RawAxis1D.RIndexTrigger;
+
+        if (OVRInput.Get(indexButton, controller) ||
+            OVRInput.Get(gripButton, controller) ||
+            OVRInput.Get(indexButton, handController) ||
+            OVRInput.Get(gripButton, handController) ||
+            OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, handController) ||
+            OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, handController))
+        {
+            return true;
+        }
+
+        float triggerValue = OVRInput.Get(indexAxis, controller);
+        float handTriggerValue = OVRInput.Get(indexAxis, handController);
+        return (IsFinite(triggerValue) && triggerValue >= controllerTriggerThreshold) ||
+               (IsFinite(handTriggerValue) && handTriggerValue >= controllerTriggerThreshold);
     }
 
     private void RegisterInteractionEvent()
@@ -183,7 +247,8 @@ public class HandCapture : MonoBehaviour
             "Left Pinch: " + left_pinch +
             " | Right Pinch: " + right_pinch +
             " | Interaction Count (10s): " + interaction_count_10s +
-            " | Nearest Distance (m): " + nearest_object_dist_m.ToString("F3")
+            " | Nearest Distance (m): " + nearest_object_dist_m.ToString("F3") +
+            " | OVR Controllers: " + OVRInput.GetConnectedControllers()
         );
 
         qaLogTimer = 0f;
@@ -209,5 +274,33 @@ public class HandCapture : MonoBehaviour
     private static bool IsFinite(Vector3 v)
     {
         return IsFinite(v.x) && IsFinite(v.y) && IsFinite(v.z);
+    }
+
+    private void ResolveHandsIfNeeded()
+    {
+        if (leftHand != null && rightHand != null)
+        {
+            return;
+        }
+
+        OVRHand[] hands = FindObjectsOfType<OVRHand>(true);
+        for (int i = 0; i < hands.Length; i++)
+        {
+            OVRHand hand = hands[i];
+            if (hand == null)
+            {
+                continue;
+            }
+
+            string objectName = hand.gameObject.name.ToLowerInvariant();
+            if (leftHand == null && objectName.Contains("left"))
+            {
+                leftHand = hand;
+            }
+            else if (rightHand == null && objectName.Contains("right"))
+            {
+                rightHand = hand;
+            }
+        }
     }
 }
