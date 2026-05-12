@@ -4,6 +4,7 @@ public struct HandFeatureVector
 {
     public float interaction_frequency;
     public bool object_proximity;
+    public bool pinch_active;
 }
 
 public class HandFeatureExtractor
@@ -27,7 +28,8 @@ public class HandFeatureExtractor
         return new HandFeatureVector
         {
             interaction_frequency = interactionFrequency,
-            object_proximity = objectProximity
+            object_proximity = objectProximity,
+            pinch_active = frame.left_pinch || frame.right_pinch
         };
     }
 }

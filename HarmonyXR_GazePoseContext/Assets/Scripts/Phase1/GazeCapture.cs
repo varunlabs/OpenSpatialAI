@@ -121,7 +121,7 @@ public class GazeCapture : MonoBehaviour
         aoi_hit = "none";
         GazeHighlight currentHighlight = null;
 
-        if (Physics.Raycast(origin, direction, out RaycastHit hit, maxRayDistance))
+        if (Physics.Raycast(origin, direction, out RaycastHit hit, maxRayDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
             if (hit.collider.CompareTag("AOI"))
             {

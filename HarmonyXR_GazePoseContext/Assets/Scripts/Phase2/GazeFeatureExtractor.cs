@@ -5,6 +5,7 @@ using UnityEngine;
 
 public struct GazeFeatureVector
 {
+    public bool currently_on_task_aoi;
     public bool fixation_on_aoi;
     public float fixation_duration_s;
     public float head_gaze_divergence_deg;
@@ -39,7 +40,7 @@ public sealed class GazeFeatureExtractor
     public GazeFeatureVector ExtractFeatures(SignalFrame frame)
     {
         long currentTimestampMs = frame.timestamp_ms;
-        bool isOnAoi = !string.Equals(frame.aoi_hit, "none", StringComparison.OrdinalIgnoreCase);
+        bool isOnAoi = IsTaskRelevantAoi(frame.aoi_hit);
 
         Vector3 currentGazeDirection = frame.gaze_direction;
         bool hasValidCurrentDirection = currentGazeDirection.sqrMagnitude > 0f;
@@ -167,11 +168,30 @@ public sealed class GazeFeatureExtractor
 
         return new GazeFeatureVector
         {
+            currently_on_task_aoi = isOnAoi,
             fixation_on_aoi = computedFixation && isOnAoi,
             fixation_duration_s = computedFixationDurationS,
             head_gaze_divergence_deg = frame.head_gaze_divergence_deg,
             aoi_dwell_ratio = aoiDwellRatio,
             saccade_rate_per_s = saccadeRatePerS
         };
+    }
+
+    private static bool IsTaskRelevantAoi(string aoiName)
+    {
+        if (string.IsNullOrWhiteSpace(aoiName) ||
+            string.Equals(aoiName, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string normalised = aoiName.Trim().ToLowerInvariant();
+        if (normalised == "table_surface" || normalised == "instruction_panel")
+        {
+            return false;
+        }
+
+        return normalised.StartsWith("task_", StringComparison.Ordinal) ||
+               normalised.StartsWith("receptacle_", StringComparison.Ordinal);
     }
 }

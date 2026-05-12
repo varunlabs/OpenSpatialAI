@@ -19,6 +19,8 @@ public class ReceptacleTrigger : MonoBehaviour
 
     public TaskPlacementEvent OnCorrectPlacement => onCorrectPlacement;
     public string ReceptacleName => receptacleName;
+    public TaskObjectType AcceptedType => acceptedType;
+    public bool HasAcceptedObject => hasAcceptedObject;
 
     private void Reset()
     {
@@ -33,20 +35,20 @@ public class ReceptacleTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (hasAcceptedObject)
-        {
-            return;
-        }
-
         SortableTaskObject taskObj = other.GetComponent<SortableTaskObject>();
         if (taskObj == null)
         {
             taskObj = other.GetComponentInParent<SortableTaskObject>();
         }
 
-        if (taskObj == null || taskObj.ObjectType != acceptedType)
+        TryAcceptPlacement(taskObj);
+    }
+
+    public bool TryAcceptPlacement(SortableTaskObject taskObj)
+    {
+        if (hasAcceptedObject || taskObj == null || taskObj.ObjectType != acceptedType)
         {
-            return;
+            return false;
         }
 
         hasAcceptedObject = true;
@@ -61,5 +63,7 @@ public class ReceptacleTrigger : MonoBehaviour
                 col.enabled = false;
             }
         }
+
+        return true;
     }
 }

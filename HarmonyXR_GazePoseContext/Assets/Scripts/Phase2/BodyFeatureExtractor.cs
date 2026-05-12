@@ -16,6 +16,15 @@ public class BodyFeatureExtractor
 {
     public BodyFeatureVector ExtractFeatures(SignalFrame frame)
     {
+        if (frame.posture_class == "unknown" || frame.spine_angle_deg < 0f)
+        {
+            return new BodyFeatureVector
+            {
+                posture_label = PostureLabel.Slouched,
+                avg_joint_velocity = 0f
+            };
+        }
+
         float spineAngle = frame.spine_angle_deg;
         PostureLabel postureLabel;
 

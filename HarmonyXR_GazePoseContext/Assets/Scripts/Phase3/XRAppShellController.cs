@@ -6,6 +6,9 @@ using UnityEngine.XR;
 
 public class XRAppShellController : MonoBehaviour
 {
+    [Header("Runtime Mode")]
+    [SerializeField] private bool qaMode = false;
+
     [SerializeField] private ContextDebugTester contextSource;
     [SerializeField] private SignalSynchroniser signalSynchroniser;
     [SerializeField] private HandCapture handCapture;
@@ -31,6 +34,7 @@ public class XRAppShellController : MonoBehaviour
     public event Action<XRContextSnapshot> ContextSnapshotUpdated;
 
     public XRContextSnapshot LatestSnapshot { get; private set; }
+    public bool QaModeEnabled => qaMode;
     private bool isUsingFallback;
     private bool lastLeftPrimaryPressed;
     private bool lastRightPrimaryPressed;
@@ -40,7 +44,9 @@ public class XRAppShellController : MonoBehaviour
 
     private void Start()
     {
+        ApplyRuntimeModeDefaults();
         EnsureHeadsetRigIfNeeded();
+        EnsureTrainingSimulationUserGuide();
         StartCoroutine(AlignTrainingSimulationWhenReady());
         StartCoroutine(BindContextSourceWhenAvailable());
     }
@@ -78,6 +84,7 @@ public class XRAppShellController : MonoBehaviour
             contextSource.ContextEvaluated -= OnContextEvaluated;
             contextSource.ContextEvaluated += OnContextEvaluated;
             isUsingFallback = false;
+            qaOverrideUntilTime = 0f;
             Debug.Log("[Phase3] XRAppShellController bound to ContextDebugTester automatically.");
             yield break;
         }
@@ -88,18 +95,29 @@ public class XRAppShellController : MonoBehaviour
             ApplyHeadsetFriendlyFallbackDefaults();
             Debug.LogWarning("[Phase3] ContextDebugTester not found. Using fallback simulation (keyboard in editor, controller/hand input in headset).");
             PublishSimulatedSnapshot();
+            yield break;
         }
+
+        isUsingFallback = false;
+        Debug.LogError("[Phase3] ContextDebugTester not found and fallback is disabled. No context snapshots will be emitted.");
     }
 
     private void Update()
     {
         bool changed = false;
-        if (isUsingFallback)
+        if (qaMode && isUsingFallback)
         {
             changed |= HandleKeyboardFallbackControls();
         }
 
-        changed |= HandleHeadsetFallbackControls();
+        // Only allow headset-side simulated state controls when the app is
+        // actually running in fallback mode. In live context mode, pinch and
+        // controller input belong to the task itself and must never override
+        // real context inference.
+        if (qaMode && isUsingFallback)
+        {
+            changed |= HandleHeadsetFallbackControls();
+        }
 
         if (changed)
         {
@@ -176,6 +194,22 @@ public class XRAppShellController : MonoBehaviour
             GameObject contextGo = new GameObject("Phase3_RuntimeContextSource");
             contextSource = contextGo.AddComponent<ContextDebugTester>();
         }
+    }
+
+    private void EnsureTrainingSimulationUserGuide()
+    {
+        if (SceneManager.GetActiveScene().name != "TrainingSimulation")
+        {
+            return;
+        }
+
+        if (FindObjectOfType<TrainingSimulationUserGuide>(true) != null)
+        {
+            return;
+        }
+
+        GameObject guideGo = new GameObject("Phase3_UserGuide");
+        guideGo.AddComponent<TrainingSimulationUserGuide>();
     }
 
     private void EnsureHeadsetRigIfNeeded()
@@ -319,6 +353,20 @@ public class XRAppShellController : MonoBehaviour
         }
 
         simulatedState = ContextState.Engaged;
+    }
+
+    private void ApplyRuntimeModeDefaults()
+    {
+        if (qaMode)
+        {
+            return;
+        }
+
+        // Production mode: never allow simulated-state overrides from controller/hand input.
+        enableFallbackSimulation = false;
+        enableHeadsetFallbackControls = false;
+        enableHeadsetQaOverride = false;
+        preferEngagedStateWhenFallbackStarts = false;
     }
 
     private bool HandleKeyboardFallbackControls()

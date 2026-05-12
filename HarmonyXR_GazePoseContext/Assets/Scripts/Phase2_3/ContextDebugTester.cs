@@ -102,11 +102,13 @@ public class ContextDebugTester : MonoBehaviour
             "[CTX] raw=" + fusionResult.state +
             " -> final=" + result.state +
             " | dwell=" + gaze.aoi_dwell_ratio.ToString("F3") +
+            ", taskAOI=" + gaze.currently_on_task_aoi +
             ", sacc=" + gaze.saccade_rate_per_s.ToString("F3") +
             ", fixOnAOI=" + gaze.fixation_on_aoi +
             ", fixDur=" + gaze.fixation_duration_s.ToString("F3") +
             ", bodyVel=" + body.avg_joint_velocity.ToString("F3") +
-            ", handFreq=" + hand.interaction_frequency.ToString("F3")
+            ", handFreq=" + hand.interaction_frequency.ToString("F3") +
+            ", pinch=" + hand.pinch_active
         );
 
         cubeDisplay?.UpdateState(result);

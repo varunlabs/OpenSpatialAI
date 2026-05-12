@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class ContextStateMachine
 {
+    private const float MinimumStateHoldSeconds = 0.5f;
+    private const float PendingConfirmationSeconds = 0.2f;
+
     private ContextState currentState = ContextState.Idle;
     private float stateEnterTime = 0f;
     private bool hasInitialized;
@@ -60,33 +63,11 @@ public class ContextStateMachine
 
     private static float GetMinimumStateHold(ContextState state)
     {
-        switch (state)
-        {
-            case ContextState.Engaged:
-                return 1.0f;
-            case ContextState.Transitioning:
-                return 1.25f;
-            case ContextState.Distracted:
-                return 1.75f;
-            case ContextState.Idle:
-            default:
-                return 2.0f;
-        }
+        return MinimumStateHoldSeconds;
     }
 
     private static float GetPendingConfirmationTime(ContextState fromState, ContextState candidateState)
     {
-        switch (candidateState)
-        {
-            case ContextState.Engaged:
-                return 0.45f;
-            case ContextState.Transitioning:
-                return fromState == ContextState.Engaged ? 0.4f : 0.6f;
-            case ContextState.Distracted:
-                return 0.75f;
-            case ContextState.Idle:
-            default:
-                return 1.1f;
-        }
+        return PendingConfirmationSeconds;
     }
 }

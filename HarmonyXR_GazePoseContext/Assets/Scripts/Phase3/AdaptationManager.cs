@@ -7,6 +7,9 @@ using UnityEngine.Rendering.Universal;
 
 public class AdaptationManager : MonoBehaviour
 {
+    [Header("Runtime Mode")]
+    [SerializeField] private bool qaMode = false;
+
     [Header("Context Source")]
     [SerializeField] private XRAppShellController appShell;
 
@@ -14,13 +17,22 @@ public class AdaptationManager : MonoBehaviour
     [SerializeField] private float engagedMinVisibleSeconds = 1.0f;
     [SerializeField] private float distractedMinVisibleSeconds = 2.25f;
     [SerializeField] private float transitioningMinVisibleSeconds = 1.75f;
-    [SerializeField] private float idleMinVisibleSeconds = 3.0f;
-    [SerializeField] private float manualUiSuppressSeconds = 1.25f;
+    [SerializeField] private float idleMinVisibleSeconds = 5.0f;
+    [SerializeField] private float manualUiSuppressSeconds = 4.0f;
 
     [Header("Headset Controls")]
     [SerializeField] private bool keepHeadsetControlsVisible = true;
     [SerializeField] private float headsetUiDistance = 1.75f;
     [SerializeField] private float headsetUiVerticalOffset = 0.35f;
+    [SerializeField] private float uiCanvasScale = 0.0012f;
+    [SerializeField] private Vector3 currentTaskPanelLocalOffset = new Vector3(0f, 52f, 60f);
+    [SerializeField] private Vector3 nextTaskPanelLocalOffset = new Vector3(0f, 52f, 60f);
+    [SerializeField] private Vector3 distractedPanelLocalOffset = new Vector3(260f, 120f, 70f);
+    [SerializeField] private Vector3 restPanelLocalOffset = new Vector3(-260f, -120f, 70f);
+    [SerializeField] private Vector3 persistentControlsLocalOffset = new Vector3(-250f, -135f, 70f);
+    [SerializeField] private Vector3 persistentStatsLocalOffset = new Vector3(430f, 125f, 90f);
+    [SerializeField, Range(0f, 1f)] private float takeBreakDimAlpha = 0.08f;
+    [SerializeField, Range(0f, 1f)] private float takeBreakVignetteIntensity = 0.18f;
     [SerializeField] private RectTransform persistentControlsRoot;
     [SerializeField] private RectTransform persistentStatsRoot;
     [SerializeField] private TMP_Text persistentStatsText;
@@ -62,6 +74,8 @@ public class AdaptationManager : MonoBehaviour
     private float suppressUiUntilTime;
     private bool hasQueuedSnapshot;
     private bool hasAppliedSnapshot;
+    private bool idleChoicePanelLocked;
+    private bool restBreakActive;
     private XRContextSnapshot queuedSnapshot;
 
     private void Start()
@@ -71,20 +85,44 @@ public class AdaptationManager : MonoBehaviour
             appShell = FindObjectOfType<XRAppShellController>(true);
         }
 
+        // If app shell is production-mode, force user-facing UI behavior.
+        if (appShell != null && appShell.QaModeEnabled)
+        {
+            qaMode = true;
+        }
+
+        // Use one clean runtime headset panel and keep the old scene panels hidden.
+        keepHeadsetControlsVisible = true;
+
         if (userHead == null && Camera.main != null)
         {
             userHead = Camera.main.transform;
+        }
+
+        if (userHead == null)
+        {
+            OVRCameraRig rig = FindObjectOfType<OVRCameraRig>(true);
+            if (rig != null && rig.centerEyeAnchor != null)
+            {
+                userHead = rig.centerEyeAnchor;
+            }
         }
 
         statsGazeExtractor = new GazeFeatureExtractor();
         NormalizePhase3Ui();
         EnsureHeadsetUiIsReadable();
         EnsurePersistentHeadsetControls();
-        EnsurePersistentStatsPanel();
+        if (qaMode)
+        {
+            EnsurePersistentStatsPanel();
+        }
         CacheEffects();
         ResetVisualState();
         KeepPersistentControlsVisible();
-        UpdatePersistentStatsPanel();
+        if (qaMode)
+        {
+            UpdatePersistentStatsPanel();
+        }
 
         if (appShell == null)
         {
@@ -105,14 +143,30 @@ public class AdaptationManager : MonoBehaviour
 
     private void Update()
     {
+        RefreshComfortUiPlacement();
         KeepPersistentControlsVisible();
         HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
-        UpdatePersistentStatsPanel();
+        if (qaMode)
+        {
+            UpdatePersistentStatsPanel();
+        }
+        else
+        {
+            HidePersistentStatsPanel();
+        }
     }
 
     public void OnContinuePressed()
     {
         suppressUiUntilTime = Time.time + manualUiSuppressSeconds;
+        idleChoicePanelLocked = false;
+        restBreakActive = false;
+        hasQueuedSnapshot = false;
+
+        if (vignette != null)
+        {
+            vignette.active = false;
+        }
 
         if (keepHeadsetControlsVisible)
         {
@@ -140,6 +194,8 @@ public class AdaptationManager : MonoBehaviour
     public void OnTakeBreakPressed()
     {
         suppressUiUntilTime = Time.time + manualUiSuppressSeconds;
+        idleChoicePanelLocked = true;
+        restBreakActive = true;
 
         if (keepHeadsetControlsVisible)
         {
@@ -147,7 +203,7 @@ public class AdaptationManager : MonoBehaviour
             if (vignette != null)
             {
                 vignette.active = true;
-                vignette.intensity.Override(0.25f);
+                vignette.intensity.Override(takeBreakVignetteIntensity);
             }
 
             return;
@@ -156,13 +212,33 @@ public class AdaptationManager : MonoBehaviour
         if (restDimOverlay != null)
         {
             restDimOverlay.gameObject.SetActive(true);
-            restDimOverlay.alpha = 0.55f;
+            restDimOverlay.alpha = Mathf.Clamp01(takeBreakDimAlpha);
+        }
+
+        if (restPanel != null)
+        {
+            restPanel.SetActive(true);
         }
     }
 
     public void OnRecenterViewPressed()
     {
         suppressUiUntilTime = Time.time + manualUiSuppressSeconds;
+        if (userHead == null)
+        {
+            if (Camera.main != null)
+            {
+                userHead = Camera.main.transform;
+            }
+            else
+            {
+                OVRCameraRig rig = FindObjectOfType<OVRCameraRig>(true);
+                if (rig != null && rig.centerEyeAnchor != null)
+                {
+                    userHead = rig.centerEyeAnchor;
+                }
+            }
+        }
 
         if (uiAnchorRoot == null || userHead == null)
         {
@@ -195,6 +271,11 @@ public class AdaptationManager : MonoBehaviour
         if (contextSource != null)
         {
             latestFrame = contextSource.LatestFrame;
+        }
+
+        if (idleChoicePanelLocked && !qaMode)
+        {
+            return;
         }
 
         if (!hasAppliedSnapshot)
@@ -301,6 +382,11 @@ public class AdaptationManager : MonoBehaviour
         activeBoundaryType = snapshot.boundaryType;
         activeStateStartedAt = Time.time;
 
+        if (snapshot.state != ContextState.Idle && !restBreakActive)
+        {
+            idleChoicePanelLocked = false;
+        }
+
         if (activeBehavior != null)
         {
             StopCoroutine(activeBehavior);
@@ -308,10 +394,18 @@ public class AdaptationManager : MonoBehaviour
         }
 
         ResetVisualState();
+        RefreshComfortUiPlacement();
         EnsureHeadsetUiIsReadable();
         KeepPersistentControlsVisible();
-        EnsurePersistentStatsPanel();
-        UpdatePersistentStatsPanel();
+        if (qaMode)
+        {
+            EnsurePersistentStatsPanel();
+            UpdatePersistentStatsPanel();
+        }
+        else
+        {
+            HidePersistentStatsPanel();
+        }
         activeBehavior = StartCoroutine(RunBehavior(snapshot.state, snapshot.boundaryType));
         Debug.Log("[Phase3] Visual state => " + snapshot.state + " (" + snapshot.boundaryType + ")");
     }
@@ -395,6 +489,7 @@ public class AdaptationManager : MonoBehaviour
     {
         yield return new WaitForSeconds(1.5f);
 
+        RefreshComfortUiPlacement();
         if (distractedEdgePanel != null)
         {
             distractedEdgePanel.gameObject.SetActive(true);
@@ -431,6 +526,7 @@ public class AdaptationManager : MonoBehaviour
     private IEnumerator ShowMinimalArOverlay()
     {
         // Minimal AR overlay placeholder reuses the edge panel in passthrough mode.
+        RefreshComfortUiPlacement();
         if (distractedEdgePanel != null)
         {
             distractedEdgePanel.gameObject.SetActive(true);
@@ -509,9 +605,24 @@ public class AdaptationManager : MonoBehaviour
 
     private IEnumerator IdleBehavior(BoundaryType boundaryType)
     {
-        if (restPanel != null && !keepHeadsetControlsVisible)
+        idleChoicePanelLocked = true;
+        restBreakActive = false;
+        RefreshComfortUiPlacement();
+        KeepPersistentControlsVisible();
+
+        HideCanvasGroup(currentTaskPanel);
+        HideCanvasGroup(nextTaskPanel);
+        if (distractedEdgePanel != null)
         {
-            restPanel.SetActive(true);
+            distractedEdgePanel.alpha = 0f;
+            distractedEdgePanel.gameObject.SetActive(false);
+        }
+        if (restDimOverlay != null)
+        {
+            restDimOverlay.alpha = 0f;
+            restDimOverlay.interactable = false;
+            restDimOverlay.blocksRaycasts = false;
+            restDimOverlay.gameObject.SetActive(false);
         }
 
         if (boundaryType == BoundaryType.RoomScale && floorArrow != null && userHead != null)
@@ -580,9 +691,12 @@ public class AdaptationManager : MonoBehaviour
             distractedEdgePanel.gameObject.SetActive(false);
         }
 
+        bool isIdleState = activeState == ContextState.Idle;
+        bool isTransitioningState = activeState == ContextState.Transitioning;
+
         if (currentTaskPanel != null)
         {
-            if (keepHeadsetControlsVisible)
+            if (keepHeadsetControlsVisible || idleChoicePanelLocked || isIdleState || !isTransitioningState)
             {
                 currentTaskPanel.alpha = 0f;
                 currentTaskPanel.gameObject.SetActive(false);
@@ -595,19 +709,24 @@ public class AdaptationManager : MonoBehaviour
 
         if (nextTaskPanel != null)
         {
-            nextTaskPanel.alpha = 0f;
-            nextTaskPanel.gameObject.SetActive(false);
+            if (keepHeadsetControlsVisible || idleChoicePanelLocked || isIdleState || !isTransitioningState)
+            {
+                nextTaskPanel.alpha = 0f;
+                nextTaskPanel.gameObject.SetActive(false);
+            }
         }
 
         if (restPanel != null)
         {
-            restPanel.SetActive(false);
+            restPanel.SetActive(!keepHeadsetControlsVisible && idleChoicePanelLocked);
         }
 
         if (restDimOverlay != null)
         {
-            restDimOverlay.alpha = 0f;
-            restDimOverlay.gameObject.SetActive(false);
+            restDimOverlay.interactable = false;
+            restDimOverlay.blocksRaycasts = false;
+            restDimOverlay.alpha = restBreakActive ? Mathf.Clamp01(takeBreakDimAlpha) : 0f;
+            restDimOverlay.gameObject.SetActive(restBreakActive);
         }
 
         if (floorArrow != null)
@@ -703,6 +822,12 @@ public class AdaptationManager : MonoBehaviour
                 continue;
             }
 
+            if (distractedEdgePanel != null &&
+                (child == distractedEdgePanel.transform || child.IsChildOf(distractedEdgePanel.transform)))
+            {
+                continue;
+            }
+
             if (child.GetComponent<Canvas>() != null)
             {
                 continue;
@@ -730,6 +855,52 @@ public class AdaptationManager : MonoBehaviour
 
         return persistentStatsRoot != null &&
                (candidate == persistentStatsRoot || candidate.IsChildOf(persistentStatsRoot));
+    }
+
+    private void RefreshComfortUiPlacement()
+    {
+        EnsureUiAnchorRoot();
+
+        if (userHead == null && Camera.main != null)
+        {
+            userHead = Camera.main.transform;
+        }
+
+        if (uiAnchorRoot == null || userHead == null)
+        {
+            return;
+        }
+
+        Vector3 flatForward = Vector3.ProjectOnPlane(userHead.forward, Vector3.up).normalized;
+        if (flatForward.sqrMagnitude < 0.0001f)
+        {
+            flatForward = Vector3.forward;
+        }
+
+        uiAnchorRoot.position = userHead.position + flatForward * headsetUiDistance + Vector3.up * headsetUiVerticalOffset;
+        uiAnchorRoot.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+
+        PositionRuntimePanel(persistentControlsRoot, new Vector2(760f, 150f), persistentControlsLocalOffset);
+        PositionRuntimePanel(persistentStatsRoot, new Vector2(860f, 330f), persistentStatsLocalOffset);
+        NormalizePanelRect(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null, new Vector2(280f, 160f), distractedPanelLocalOffset);
+        NormalizePanelRect(restPanel, new Vector2(360f, 260f), restPanelLocalOffset);
+    }
+
+    private static void PositionRuntimePanel(RectTransform panel, Vector2 size, Vector3 localOffset)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        panel.anchorMin = new Vector2(0.5f, 0.5f);
+        panel.anchorMax = new Vector2(0.5f, 0.5f);
+        panel.pivot = new Vector2(0.5f, 0.5f);
+        panel.sizeDelta = size;
+        panel.anchoredPosition = new Vector2(localOffset.x, localOffset.y);
+        panel.localPosition = localOffset;
+        panel.localRotation = Quaternion.identity;
+        panel.localScale = Vector3.one;
     }
 
     private void NormalizePhase3Ui()
@@ -761,7 +932,7 @@ public class AdaptationManager : MonoBehaviour
 
             RectTransform canvasRect = rootCanvas.GetComponent<RectTransform>();
             canvasRect.sizeDelta = new Vector2(900f, 600f);
-            canvasRect.localScale = Vector3.one * 0.0012f;
+            canvasRect.localScale = Vector3.one * uiCanvasScale;
             canvasRect.localPosition = Vector3.zero;
             canvasRect.localRotation = Quaternion.identity;
         }
@@ -777,11 +948,12 @@ public class AdaptationManager : MonoBehaviour
             uiAnchorRoot.position = userHead.position + flatForward * headsetUiDistance + Vector3.up * headsetUiVerticalOffset;
             uiAnchorRoot.rotation = Quaternion.LookRotation(uiAnchorRoot.position - userHead.position, Vector3.up);
         }
+        uiAnchorRoot.position += Vector3.up * 0.02f;
 
-        NormalizePanelRect(restPanel, new Vector2(420f, 220f), new Vector3(0f, 0f, 0.15f));
-        NormalizePanelRect(currentTaskPanel != null ? currentTaskPanel.gameObject : null, new Vector2(420f, 220f), new Vector3(0f, 0f, 0.10f));
-        NormalizePanelRect(nextTaskPanel != null ? nextTaskPanel.gameObject : null, new Vector2(420f, 220f), new Vector3(0f, 0f, 0.10f));
-        NormalizePanelRect(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null, new Vector2(280f, 160f), new Vector3(0.28f, 0.12f, 0.12f));
+        NormalizePanelRect(restPanel, new Vector2(360f, 240f), restPanelLocalOffset);
+        NormalizePanelRect(currentTaskPanel != null ? currentTaskPanel.gameObject : null, new Vector2(420f, 220f), currentTaskPanelLocalOffset);
+        NormalizePanelRect(nextTaskPanel != null ? nextTaskPanel.gameObject : null, new Vector2(420f, 220f), nextTaskPanelLocalOffset);
+        NormalizePanelRect(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null, new Vector2(280f, 160f), distractedPanelLocalOffset);
         HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
 
         if (restDimOverlay != null)
@@ -794,7 +966,10 @@ public class AdaptationManager : MonoBehaviour
                 dimRect.pivot = new Vector2(0.5f, 0.5f);
                 dimRect.sizeDelta = new Vector2(460f, 260f);
                 dimRect.anchoredPosition = Vector2.zero;
-                dimRect.localPosition = new Vector3(0f, 0f, 0.05f);
+                dimRect.localPosition = new Vector3(0f, 0f, 0.08f);
+                dimRect.anchorMin = new Vector2(0.5f, 0.5f);
+                dimRect.anchorMax = new Vector2(0.5f, 0.5f);
+                dimRect.pivot = new Vector2(0.5f, 0.5f);
             }
         }
     }
@@ -823,11 +998,13 @@ public class AdaptationManager : MonoBehaviour
         RepairPanelBackground(currentTaskPanel != null ? currentTaskPanel.gameObject : null);
         RepairPanelBackground(nextTaskPanel != null ? nextTaskPanel.gameObject : null);
         RepairPanelBackground(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null);
+        ApplyComfortableDimOverlayStyle();
         RepairText(restPanel);
         RepairText(currentTaskPanel != null ? currentTaskPanel.gameObject : null);
         RepairText(nextTaskPanel != null ? nextTaskPanel.gameObject : null);
         RepairText(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null);
         RepairButtons(restPanel);
+        ArrangeRestPanelLayout(restPanel);
     }
 
     private void EnsureCanvasInputComponents()
@@ -858,7 +1035,7 @@ public class AdaptationManager : MonoBehaviour
 
         RectTransform canvasRect = canvas.GetComponent<RectTransform>();
         canvasRect.sizeDelta = new Vector2(900f, 600f);
-        canvasRect.localScale = Vector3.one * 0.0012f;
+        canvasRect.localScale = Vector3.one * uiCanvasScale;
         canvasRect.localPosition = Vector3.zero;
         canvasRect.localRotation = Quaternion.identity;
     }
@@ -883,6 +1060,21 @@ public class AdaptationManager : MonoBehaviour
         {
             group.interactable = true;
             group.blocksRaycasts = true;
+        }
+    }
+
+    private void ApplyComfortableDimOverlayStyle()
+    {
+        if (restDimOverlay == null)
+        {
+            return;
+        }
+
+        Image dimImage = restDimOverlay.GetComponent<Image>();
+        if (dimImage != null)
+        {
+            dimImage.color = new Color(0.02f, 0.03f, 0.05f, 0.98f);
+            dimImage.raycastTarget = false;
         }
     }
 
@@ -968,6 +1160,101 @@ public class AdaptationManager : MonoBehaviour
         }
     }
 
+    private static void ArrangeRestPanelLayout(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        RectTransform panelRect = root.transform as RectTransform;
+        if (panelRect != null)
+        {
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(360f, 260f);
+            panelRect.localScale = Vector3.one;
+        }
+
+        Image panelImage = root.GetComponent<Image>();
+        if (panelImage != null)
+        {
+            panelImage.color = new Color(0.015f, 0.02f, 0.03f, 0.88f);
+        }
+
+        Button continueButton = null;
+        Button breakButton = null;
+        Button recenterButton = null;
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            string label = GetButtonLabel(button);
+            if (label.Contains("continue"))
+            {
+                continueButton = button;
+            }
+            else if (label.Contains("break"))
+            {
+                breakButton = button;
+            }
+            else if (label.Contains("recenter"))
+            {
+                recenterButton = button;
+            }
+        }
+
+        PositionRestButton(continueButton, new Vector2(0f, 62f));
+        PositionRestButton(breakButton, new Vector2(0f, 0f));
+        PositionRestButton(recenterButton, new Vector2(0f, -62f));
+    }
+
+    private static string GetButtonLabel(Button button)
+    {
+        if (button == null)
+        {
+            return string.Empty;
+        }
+
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null && !string.IsNullOrWhiteSpace(label.text))
+        {
+            return label.text.Trim().ToLowerInvariant();
+        }
+
+        return button.gameObject.name.ToLowerInvariant();
+    }
+
+    private static void PositionRestButton(Button button, Vector2 anchoredPosition)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        RectTransform rect = button.transform as RectTransform;
+        if (rect != null)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(300f, 54f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.localPosition = new Vector3(anchoredPosition.x, anchoredPosition.y, 0.02f);
+            rect.localScale = Vector3.one;
+        }
+
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.fontSize = 23f;
+            label.alignment = TextAlignmentOptions.Center;
+            label.enableWordWrapping = false;
+        }
+    }
+
     private void EnsurePersistentHeadsetControls()
     {
         if (!keepHeadsetControlsVisible)
@@ -999,24 +1286,114 @@ public class AdaptationManager : MonoBehaviour
             panelGo.transform.SetParent(canvas.transform, false);
             persistentControlsRoot = panelGo.AddComponent<RectTransform>();
             Image panelImage = panelGo.AddComponent<Image>();
-            panelImage.color = new Color(0.02f, 0.03f, 0.05f, 0.78f);
+            panelImage.color = new Color(0.02f, 0.03f, 0.05f, 0.72f);
             panelImage.raycastTarget = false;
             panelGo.AddComponent<CanvasGroup>();
 
-            CreatePersistentButton("Continue", new Vector2(-250f, 0f), OnContinuePressed);
-            CreatePersistentButton("Take a break", new Vector2(0f, 0f), OnTakeBreakPressed);
-            CreatePersistentButton("Recenter view", new Vector2(250f, 0f), OnRecenterViewPressed);
+            CreatePersistentControlsTitle();
+            CreatePersistentButton("Continue", new Vector2(-245f, -34f), OnContinuePressed);
+            CreatePersistentButton("Take a break", new Vector2(0f, -34f), OnTakeBreakPressed);
+            CreatePersistentButton("Recenter view", new Vector2(245f, -34f), OnRecenterViewPressed);
+        }
+        else if (persistentControlsRoot.Find("IdleActionsTitle") == null)
+        {
+            CreatePersistentControlsTitle();
         }
 
         persistentControlsRoot.anchorMin = new Vector2(0.5f, 0.5f);
         persistentControlsRoot.anchorMax = new Vector2(0.5f, 0.5f);
         persistentControlsRoot.pivot = new Vector2(0.5f, 0.5f);
-        persistentControlsRoot.sizeDelta = new Vector2(820f, 82f);
-        persistentControlsRoot.anchoredPosition = new Vector2(0f, -195f);
-        persistentControlsRoot.localPosition = new Vector3(0f, -195f, -0.08f);
+        persistentControlsRoot.sizeDelta = new Vector2(760f, 150f);
+        persistentControlsRoot.anchoredPosition = new Vector2(persistentControlsLocalOffset.x, persistentControlsLocalOffset.y);
+        persistentControlsRoot.localPosition = new Vector3(persistentControlsLocalOffset.x, persistentControlsLocalOffset.y, persistentControlsLocalOffset.z);
         persistentControlsRoot.localRotation = Quaternion.identity;
         persistentControlsRoot.localScale = Vector3.one;
+        NormalizePersistentControlButtons();
         KeepPersistentControlsVisible();
+    }
+
+    private void CreatePersistentControlsTitle()
+    {
+        if (persistentControlsRoot == null)
+        {
+            return;
+        }
+
+        GameObject titleGo = new GameObject("IdleActionsTitle");
+        titleGo.transform.SetParent(persistentControlsRoot, false);
+        TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
+        title.text = "Idle actions";
+        title.fontSize = 24f;
+        title.fontStyle = FontStyles.Bold;
+        title.color = new Color(0.94f, 0.96f, 1f, 1f);
+        title.alignment = TextAlignmentOptions.Center;
+        title.raycastTarget = false;
+
+        RectTransform titleRect = title.rectTransform;
+        titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        titleRect.pivot = new Vector2(0.5f, 0.5f);
+        titleRect.sizeDelta = new Vector2(700f, 36f);
+        titleRect.anchoredPosition = new Vector2(0f, 42f);
+        titleRect.localScale = Vector3.one;
+    }
+
+    private void NormalizePersistentControlButtons()
+    {
+        if (persistentControlsRoot == null)
+        {
+            return;
+        }
+
+        Button[] buttons = persistentControlsRoot.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            string label = GetButtonLabel(button);
+            if (label.Contains("continue"))
+            {
+                PositionRuntimeButton(button, new Vector2(-245f, -34f));
+            }
+            else if (label.Contains("break"))
+            {
+                PositionRuntimeButton(button, new Vector2(0f, -34f));
+            }
+            else if (label.Contains("recenter"))
+            {
+                PositionRuntimeButton(button, new Vector2(245f, -34f));
+            }
+        }
+    }
+
+    private static void PositionRuntimeButton(Button button, Vector2 position)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        RectTransform rect = button.transform as RectTransform;
+        if (rect != null)
+        {
+            rect.sizeDelta = new Vector2(220f, 58f);
+            rect.anchoredPosition = position;
+            rect.localPosition = new Vector3(position.x, position.y, 0.02f);
+            rect.localScale = Vector3.one;
+        }
+
+        Image image = button.targetGraphic as Image;
+        if (image == null)
+        {
+            image = button.GetComponent<Image>();
+            button.targetGraphic = image;
+        }
+
+        if (image != null)
+        {
+            image.enabled = true;
+            image.color = new Color(0.07f, 0.10f, 0.15f, 0.96f);
+            image.raycastTarget = true;
+        }
     }
 
     private void CreatePersistentButton(string label, Vector2 anchoredPosition, UnityEngine.Events.UnityAction action)
@@ -1062,14 +1439,20 @@ public class AdaptationManager : MonoBehaviour
             return;
         }
 
-        persistentControlsRoot.gameObject.SetActive(true);
+        bool shouldShow = ShouldShowPersistentControls();
+        persistentControlsRoot.gameObject.SetActive(shouldShow);
         CanvasGroup group = persistentControlsRoot.GetComponent<CanvasGroup>();
         if (group != null)
         {
-            group.alpha = 1f;
-            group.interactable = true;
-            group.blocksRaycasts = true;
+            group.alpha = shouldShow ? 1f : 0f;
+            group.interactable = shouldShow;
+            group.blocksRaycasts = shouldShow;
         }
+    }
+
+    private bool ShouldShowPersistentControls()
+    {
+        return activeState == ContextState.Idle || idleChoicePanelLocked || restBreakActive;
     }
 
     private void EnsurePersistentStatsPanel()
@@ -1112,7 +1495,7 @@ public class AdaptationManager : MonoBehaviour
             textGo.transform.SetParent(panelGo.transform, false);
             persistentStatsText = textGo.AddComponent<TextMeshProUGUI>();
             persistentStatsText.color = Color.white;
-            persistentStatsText.fontSize = 20f;
+            persistentStatsText.fontSize = 23f;
             persistentStatsText.alignment = TextAlignmentOptions.TopLeft;
             persistentStatsText.enableWordWrapping = true;
             persistentStatsText.raycastTarget = false;
@@ -1128,11 +1511,40 @@ public class AdaptationManager : MonoBehaviour
         persistentStatsRoot.anchorMin = new Vector2(0.5f, 0.5f);
         persistentStatsRoot.anchorMax = new Vector2(0.5f, 0.5f);
         persistentStatsRoot.pivot = new Vector2(0.5f, 0.5f);
-        persistentStatsRoot.sizeDelta = new Vector2(760f, 285f);
-        persistentStatsRoot.anchoredPosition = new Vector2(0f, 145f);
-        persistentStatsRoot.localPosition = new Vector3(0f, 145f, -0.09f);
+        persistentStatsRoot.sizeDelta = new Vector2(860f, 330f);
+        persistentStatsRoot.anchoredPosition = new Vector2(persistentStatsLocalOffset.x, persistentStatsLocalOffset.y);
+        persistentStatsRoot.localPosition = new Vector3(persistentStatsLocalOffset.x, persistentStatsLocalOffset.y, persistentStatsLocalOffset.z);
         persistentStatsRoot.localRotation = Quaternion.identity;
         persistentStatsRoot.localScale = Vector3.one;
+
+        if (persistentStatsText != null)
+        {
+            persistentStatsText.fontSize = 23f;
+            persistentStatsText.color = Color.white;
+            persistentStatsText.alignment = TextAlignmentOptions.TopLeft;
+            persistentStatsText.enableWordWrapping = true;
+        }
+    }
+
+    private void HidePersistentStatsPanel()
+    {
+        if (persistentStatsRoot != null)
+        {
+            persistentStatsRoot.gameObject.SetActive(false);
+            return;
+        }
+
+        if (uiAnchorRoot == null)
+        {
+            return;
+        }
+
+        Canvas canvas = uiAnchorRoot.GetComponentInChildren<Canvas>(true);
+        Transform existing = canvas != null ? canvas.transform.Find("Phase3_HeadsetStatsPanel") : null;
+        if (existing != null)
+        {
+            existing.gameObject.SetActive(false);
+        }
     }
 
     private void UpdatePersistentStatsPanel()

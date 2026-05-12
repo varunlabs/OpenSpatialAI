@@ -15,9 +15,11 @@ public class DebugOverlayController : MonoBehaviour
 
     [Header("Overlay Root")]
     [SerializeField] private Canvas worldSpaceCanvas;
-    [SerializeField] private float distanceFromHead = 0.65f;
-    [SerializeField] private float rightOffset = 0.48f;
-    [SerializeField] private float upOffset = 0.58f;
+    [SerializeField] private Transform taskAreaAnchor;
+    [SerializeField] private float distanceFromHead = 1.6f;
+    [SerializeField] private float rightOffset = 0.72f;
+    [SerializeField] private float upOffset = 0.22f;
+    [SerializeField] private bool preferTaskAreaPlacement = true;
 
     [Header("Toggle")]
     [SerializeField] private float rightTriggerLongPressSeconds = 0.8f;
@@ -73,6 +75,15 @@ public class DebugOverlayController : MonoBehaviour
         if (userHead == null && Camera.main != null)
         {
             userHead = Camera.main.transform;
+        }
+
+        if (taskAreaAnchor == null)
+        {
+            GameObject taskAnchorGo = GameObject.Find("TaskAreaAnchor");
+            if (taskAnchorGo != null)
+            {
+                taskAreaAnchor = taskAnchorGo.transform;
+            }
         }
 
         if (appShell != null)
@@ -202,16 +213,32 @@ public class DebugOverlayController : MonoBehaviour
             flatRight = Vector3.ProjectOnPlane(userHead.right, Vector3.up).normalized;
         }
 
-        Vector3 anchor = userHead.position
-            + flatForward * distanceFromHead
-            + flatRight * rightOffset
-            + Vector3.up * upOffset;
+        Vector3 anchor;
+        if (preferTaskAreaPlacement && taskAreaAnchor != null)
+        {
+            anchor = taskAreaAnchor.position
+                + flatRight * rightOffset
+                + Vector3.up * upOffset;
+        }
+        else
+        {
+            anchor = userHead.position
+                + flatForward * distanceFromHead
+                + flatRight * rightOffset
+                + Vector3.up * upOffset;
+        }
 
         worldSpaceCanvas.transform.position = anchor;
 
         // Keep the debug panel upright. Pitching the panel toward the head makes
         // the text appear slanted and can visually push rows outside the box.
-        worldSpaceCanvas.transform.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+        Vector3 faceDirection = Vector3.ProjectOnPlane(anchor - userHead.position, Vector3.up).normalized;
+        if (faceDirection.sqrMagnitude < 0.0001f)
+        {
+            faceDirection = flatForward;
+        }
+
+        worldSpaceCanvas.transform.rotation = Quaternion.LookRotation(faceDirection, Vector3.up);
     }
 
     private void UpdateRealtimeUi()
@@ -398,12 +425,12 @@ public class DebugOverlayController : MonoBehaviour
             canvasGo.AddComponent<GraphicRaycaster>();
 
             RectTransform canvasRt = worldSpaceCanvas.GetComponent<RectTransform>();
-            canvasRt.sizeDelta = new Vector2(560f, 360f);
+            canvasRt.sizeDelta = new Vector2(650f, 430f);
             canvasRt.localScale = Vector3.one * 0.00105f;
         }
 
         Transform root = worldSpaceCanvas.transform;
-        RectTransform panel = EnsureUiImage("Panel", root, new Vector2(560f, 360f), new Color(0.02f, 0.025f, 0.03f, 0.94f));
+        RectTransform panel = EnsureUiImage("Panel", root, new Vector2(650f, 430f), new Color(0.02f, 0.025f, 0.03f, 0.94f));
         panel.anchoredPosition = Vector2.zero;
         Transform panelRoot = panel.transform;
 
@@ -478,12 +505,12 @@ public class DebugOverlayController : MonoBehaviour
         worldSpaceCanvas.renderMode = RenderMode.WorldSpace;
         worldSpaceCanvas.worldCamera = Camera.main;
 
-        distanceFromHead = 0.65f;
-        rightOffset = 0.48f;
-        upOffset = 0.58f;
+        distanceFromHead = 1.6f;
+        rightOffset = 0.72f;
+        upOffset = 0.22f;
 
         RectTransform canvasRt = worldSpaceCanvas.GetComponent<RectTransform>();
-        canvasRt.sizeDelta = new Vector2(560f, 360f);
+        canvasRt.sizeDelta = new Vector2(650f, 430f);
         canvasRt.localScale = Vector3.one * 0.00105f;
         canvasRt.localPosition = new Vector3(0f, 0f, 1.1f);
         canvasRt.localRotation = Quaternion.identity;
@@ -494,7 +521,7 @@ public class DebugOverlayController : MonoBehaviour
             panel.anchorMin = new Vector2(0.5f, 0.5f);
             panel.anchorMax = new Vector2(0.5f, 0.5f);
             panel.pivot = new Vector2(0.5f, 0.5f);
-            panel.sizeDelta = new Vector2(560f, 360f);
+            panel.sizeDelta = new Vector2(650f, 430f);
             panel.anchoredPosition = Vector2.zero;
             panel.localRotation = Quaternion.identity;
             panel.localScale = Vector3.one;
@@ -510,14 +537,14 @@ public class DebugOverlayController : MonoBehaviour
         ReparentToOverlayPanel(bodyPostureClassText);
         ReparentToOverlayPanel(interactionCountText);
 
-        LayoutField(contextStateText, new Vector2(510f, 36f), new Vector2(24f, -24f), 24f, TextAlignmentOptions.TopLeft, true);
-        LayoutField(confidenceText, new Vector2(260f, 24f), new Vector2(24f, -66f), 17f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(boundaryText, new Vector2(260f, 24f), new Vector2(24f, -94f), 17f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(postureModeText, new Vector2(260f, 24f), new Vector2(24f, -122f), 17f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(lastFiveAoiText, new Vector2(510f, 92f), new Vector2(24f, -152f), 15f, TextAlignmentOptions.TopLeft, true);
-        LayoutField(fixationDurationText, new Vector2(260f, 24f), new Vector2(24f, -252f), 17f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(bodyPostureClassText, new Vector2(260f, 24f), new Vector2(24f, -280f), 17f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(interactionCountText, new Vector2(260f, 24f), new Vector2(24f, -308f), 17f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(contextStateText, new Vector2(590f, 40f), new Vector2(28f, -26f), 28f, TextAlignmentOptions.TopLeft, true);
+        LayoutField(confidenceText, new Vector2(310f, 28f), new Vector2(28f, -76f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(boundaryText, new Vector2(310f, 28f), new Vector2(28f, -108f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(postureModeText, new Vector2(310f, 28f), new Vector2(28f, -140f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(lastFiveAoiText, new Vector2(590f, 112f), new Vector2(28f, -176f), 18f, TextAlignmentOptions.TopLeft, true);
+        LayoutField(fixationDurationText, new Vector2(310f, 28f), new Vector2(28f, -300f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(bodyPostureClassText, new Vector2(310f, 28f), new Vector2(28f, -332f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(interactionCountText, new Vector2(310f, 28f), new Vector2(28f, -364f), 20f, TextAlignmentOptions.TopLeft, false);
 
         if (confidenceFill != null)
         {
@@ -529,7 +556,7 @@ public class DebugOverlayController : MonoBehaviour
                 confidenceRect.anchorMax = new Vector2(0f, 1f);
                 confidenceRect.pivot = new Vector2(0f, 1f);
                 confidenceRect.sizeDelta = new Vector2(210f, 12f);
-                confidenceRect.anchoredPosition = new Vector2(320f, -70f);
+                confidenceRect.anchoredPosition = new Vector2(380f, -82f);
             }
         }
 
@@ -539,8 +566,8 @@ public class DebugOverlayController : MonoBehaviour
             timelineSegmentContainer.anchorMin = new Vector2(0f, 1f);
             timelineSegmentContainer.anchorMax = new Vector2(0f, 1f);
             timelineSegmentContainer.pivot = new Vector2(0f, 1f);
-            timelineSegmentContainer.sizeDelta = new Vector2(510f, 14f);
-            timelineSegmentContainer.anchoredPosition = new Vector2(24f, -336f);
+            timelineSegmentContainer.sizeDelta = new Vector2(590f, 16f);
+            timelineSegmentContainer.anchoredPosition = new Vector2(28f, -398f);
         }
     }
 

@@ -60,7 +60,7 @@ public class BodyPoseCapture : MonoBehaviour
         bool hasBodyData = UpdateBodyTracking();
         if (!hasBodyData)
         {
-            ApplyEditorFallbackFromHead();
+            MarkBodyTrackingUnavailable();
         }
 
         UpdateHeadGazeDivergenceInternal();
@@ -125,32 +125,11 @@ public class BodyPoseCapture : MonoBehaviour
         return true;
     }
 
-    private void ApplyEditorFallbackFromHead()
+    private void MarkBodyTrackingUnavailable()
     {
-        if (head_forward == Vector3.zero)
-        {
-            posture_class = "unknown";
-            spine_angle_deg = 0f;
-            return;
-        }
-
-        Vector3 forward = head_forward;
-        Vector3 flatForward = new Vector3(forward.x, 0f, forward.z).normalized;
-        float angle = Vector3.Angle(flatForward, forward);
-        spine_angle_deg = angle;
-
-        if (spine_angle_deg < 10f)
-        {
-            posture_class = "standing";
-        }
-        else if (spine_angle_deg <= 25f)
-        {
-            posture_class = "leaning";
-        }
-        else
-        {
-            posture_class = "reaching";
-        }
+        posture_class = "unknown";
+        spine_angle_deg = -1f;
+        avg_joint_velocity = 0f;
     }
 
     private void UpdateHeadPose()

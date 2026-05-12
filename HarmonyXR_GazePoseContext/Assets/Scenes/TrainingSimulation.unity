@@ -457,15 +457,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dad4868b17d5a9341b22f985a66eedcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  qaMode: 0
   appShell: {fileID: 145958545}
   engagedMinVisibleSeconds: 1
   distractedMinVisibleSeconds: 2.25
   transitioningMinVisibleSeconds: 1.75
-  idleMinVisibleSeconds: 3
-  manualUiSuppressSeconds: 1.25
-  keepHeadsetControlsVisible: 1
+  idleMinVisibleSeconds: 5
+  manualUiSuppressSeconds: 4
+  keepHeadsetControlsVisible: 0
   headsetUiDistance: 1.75
   headsetUiVerticalOffset: 0.35
+  uiCanvasScale: 0.0012
+  currentTaskPanelLocalOffset: {x: 0, y: 52, z: 60}
+  nextTaskPanelLocalOffset: {x: 0, y: 52, z: 60}
+  distractedPanelLocalOffset: {x: 0.35, y: 0.22, z: 60}
+  restPanelLocalOffset: {x: -300, y: -24, z: 60}
+  persistentControlsLocalOffset: {x: 0, y: -70, z: 60}
+  persistentStatsLocalOffset: {x: 0, y: 145, z: 60}
+  takeBreakDimAlpha: 0.15
+  takeBreakVignetteIntensity: 0.18
   persistentControlsRoot: {fileID: 0}
   persistentStatsRoot: {fileID: 0}
   persistentStatsText: {fileID: 0}
@@ -531,6 +541,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 158df2544a2718442868ae27ae18234b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  qaMode: 0
   contextSource: {fileID: 0}
   signalSynchroniser: {fileID: 0}
   handCapture: {fileID: 0}
@@ -540,8 +551,8 @@ MonoBehaviour:
   autoAlignTrainingSimulation: 1
   trainingSceneDistanceFromHead: 2
   enableFallbackSimulation: 1
-  enableHeadsetFallbackControls: 1
-  enableHeadsetQaOverride: 1
+  enableHeadsetFallbackControls: 0
+  enableHeadsetQaOverride: 0
   qaOverrideHoldSeconds: 8
   preferEngagedStateWhenFallbackStarts: 1
   simulatedState: 2
@@ -3450,9 +3461,11 @@ MonoBehaviour:
   handCapture: {fileID: 0}
   userHead: {fileID: 346309077}
   worldSpaceCanvas: {fileID: 1784066126}
+  taskAreaAnchor: {fileID: 0}
   distanceFromHead: 1.1
   rightOffset: 0.45
   upOffset: 0.25
+  preferTaskAreaPlacement: 1
   rightTriggerLongPressSeconds: 0.8
   contextStateText: {fileID: 937014931}
   confidenceFill: {fileID: 256045148}
