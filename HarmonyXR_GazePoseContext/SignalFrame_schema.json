@@ -23,6 +23,10 @@
   "posture_mode": "standing",
   "boundary_type": "stationary",
   "locomotion_delta_m": 0.0,
+  "gaze_stale": false,
+  "body_stale": false,
+  "hand_stale": false,
+  "spatial_stale": false,
 
   "context_state": "unknown",
   "context_confidence": 0.0

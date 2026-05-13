@@ -70,6 +70,7 @@ public class AdaptationManager : MonoBehaviour
     private XRContextSnapshot latestSnapshot;
     private SignalFrame latestFrame;
     private GazeFeatureExtractor statsGazeExtractor;
+    private TrainingSimulationUserGuide userGuide;
     private float activeStateStartedAt;
     private float suppressUiUntilTime;
     private bool hasQueuedSnapshot;
@@ -83,6 +84,11 @@ public class AdaptationManager : MonoBehaviour
         if (appShell == null)
         {
             appShell = FindObjectOfType<XRAppShellController>(true);
+        }
+
+        if (userGuide == null)
+        {
+            userGuide = FindObjectOfType<TrainingSimulationUserGuide>(true);
         }
 
         // If app shell is production-mode, force user-facing UI behavior.
@@ -1452,6 +1458,21 @@ public class AdaptationManager : MonoBehaviour
 
     private bool ShouldShowPersistentControls()
     {
+        TrainingSimulationUserGuide[] guides = FindObjectsOfType<TrainingSimulationUserGuide>(true);
+        for (int i = 0; i < guides.Length; i++)
+        {
+            if (guides[i] != null && guides[i].OnboardingActive)
+            {
+                userGuide = guides[i];
+                return false;
+            }
+        }
+
+        if (userGuide == null && guides.Length > 0)
+        {
+            userGuide = guides[0];
+        }
+
         return activeState == ContextState.Idle || idleChoicePanelLocked || restBreakActive;
     }
 

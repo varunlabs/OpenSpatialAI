@@ -62,3 +62,7 @@ This project is part of the Harmony XR + AI framework and contributes to the Gaz
 The Android APK is intended for Meta Quest headset deployment.
 If the APK is opened on a normal phone, a black screen is expected because the build depends on headset XR runtime services and headset-rendered scene flow rather than standard mobile app presentation.
 
+## Context Logs
+
+Runtime context logs are written as JSON Lines (`.jsonl`) in Unity's persistent data path. Each line is a complete JSON record, which keeps headset logging stream-safe while remaining parseable by Python, Unity, and standard data tools.
+

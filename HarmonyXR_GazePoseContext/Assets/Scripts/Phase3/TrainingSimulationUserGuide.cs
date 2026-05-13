@@ -8,9 +8,12 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     [SerializeField] private XRAppShellController appShell;
     [SerializeField] private HandCapture handCapture;
     [SerializeField] private Transform userHead;
+    [SerializeField] private Transform taskAreaAnchor;
     [SerializeField] private float guideDistanceFromHead = 1.75f;
-    [SerializeField] private float guideHeightOffset = 0.02f;
-    [SerializeField] private float guideSideOffset = 0.32f;
+    [SerializeField] private float guideHeightOffset = 0.10f;
+    [SerializeField] private float guideSideOffset = 0f;
+    [SerializeField] private Vector3 taskAnchoredGuideOffset = new Vector3(0.84f, 0.72f, -0.20f);
+    [SerializeField] private float guideInitialPlacementDelaySeconds = 0.75f;
     [SerializeField] private bool lockGuidePositionAfterInitialPlacement = true;
     [SerializeField] private float carryDistanceFromHead = 1.15f;
     [SerializeField] private float carryHeightOffset = -0.18f;
@@ -67,9 +70,12 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     private int onboardingStepIndex;
     private bool hasReceivedSnapshot;
     private bool guidePositionLocked;
+    private float guidePlacementAllowedAt;
     private int stateTransitionCount;
     private readonly HashSet<ContextState> observedStates = new HashSet<ContextState>();
     private const int OnboardingStepCount = 5;
+
+    public bool OnboardingActive => IsOnboardingActive();
 
     private struct ObjectVisual
     {
@@ -86,6 +92,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         RegisterObjects();
         RegisterPlacementEvents();
         EnsureGuideCanvas();
+        guidePlacementAllowedAt = Time.time + guideInitialPlacementDelaySeconds;
         UpdateGuideText();
 
         if (appShell != null)
@@ -135,6 +142,15 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         if (handCapture == null)
         {
             handCapture = FindObjectOfType<HandCapture>(true);
+        }
+
+        if (taskAreaAnchor == null)
+        {
+            GameObject taskAnchorGo = GameObject.Find("TaskAreaAnchor");
+            if (taskAnchorGo != null)
+            {
+                taskAreaAnchor = taskAnchorGo.transform;
+            }
         }
 
         if (contextSource == null)
@@ -499,6 +515,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         guideCanvas.sortingOrder = 60;
         canvasGo.AddComponent<CanvasScaler>();
         canvasGo.AddComponent<GraphicRaycaster>();
+        canvasGo.SetActive(false);
 
         RectTransform canvasRect = guideCanvas.GetComponent<RectTransform>();
         canvasRect.sizeDelta = new Vector2(760f, 500f);
@@ -637,13 +654,44 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             return;
         }
 
+        if (Time.time < guidePlacementAllowedAt)
+        {
+            return;
+        }
+
+        if (taskAreaAnchor != null)
+        {
+            Vector3 anchoredPosition = taskAreaAnchor.position + taskAreaAnchor.TransformVector(taskAnchoredGuideOffset);
+            Vector3 readableForward = Vector3.ProjectOnPlane(anchoredPosition - userHead.position, Vector3.up).normalized;
+            if (readableForward.sqrMagnitude < 0.0001f)
+            {
+                readableForward = Vector3.ProjectOnPlane(taskAreaAnchor.forward, Vector3.up).normalized;
+            }
+
+            if (readableForward.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            guideCanvas.transform.position = anchoredPosition;
+            guideCanvas.transform.rotation = Quaternion.LookRotation(readableForward, Vector3.up);
+            guideCanvas.gameObject.SetActive(true);
+            guidePositionLocked = lockGuidePositionAfterInitialPlacement;
+            return;
+        }
+
         Vector3 flatForward = Vector3.ProjectOnPlane(userHead.forward, Vector3.up).normalized;
         if (flatForward.sqrMagnitude < 0.0001f)
         {
-            flatForward = Vector3.forward;
+            return;
         }
 
         Vector3 flatRight = Vector3.Cross(Vector3.up, flatForward).normalized;
+        if (flatRight.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
         Vector3 position = userHead.position
             + flatForward * guideDistanceFromHead
             + flatRight * guideSideOffset
@@ -651,6 +699,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         guideCanvas.transform.position = position;
         guideCanvas.transform.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+        guideCanvas.gameObject.SetActive(true);
         guidePositionLocked = lockGuidePositionAfterInitialPlacement;
     }
 
@@ -667,25 +716,33 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             latestFrame = contextSource.LatestFrame;
         }
 
+        bool isCompleted = completedObjects.Count >= objectToReceptacle.Count;
+
         titleText.text = ResolveTitle();
-        titleText.color = completedObjects.Count >= objectToReceptacle.Count
+        titleText.color = isCompleted
             ? new Color(0.86f, 1.00f, 0.90f, 1f)
             : new Color(0.96f, 0.98f, 1f, 1f);
         if (statusText != null)
         {
-            statusText.text = IsOnboardingActive()
-                ? "Research orientation  " + (onboardingStepIndex + 1) + " / " + OnboardingStepCount
-                : StateLabel(currentState) + "  -  " + StateMeaning(currentState);
-            statusText.color = IsOnboardingActive()
-                ? new Color(0.18f, 0.72f, 0.92f, 1f)
-                : StateColor(currentState);
+            statusText.text = isCompleted
+                ? "Adaptive XR Analysis Complete"
+                : IsOnboardingActive()
+                    ? "Research orientation  " + (onboardingStepIndex + 1) + " / " + OnboardingStepCount
+                    : StateLabel(currentState) + "  -  " + StateMeaning(currentState);
+            statusText.color = isCompleted
+                ? new Color(0.70f, 1.00f, 0.78f, 1f)
+                : IsOnboardingActive()
+                    ? new Color(0.18f, 0.72f, 0.92f, 1f)
+                    : StateColor(currentState);
         }
 
         if (stateAccentImage != null)
         {
-            stateAccentImage.color = IsOnboardingActive()
-                ? new Color(0.18f, 0.72f, 0.92f, 1f)
-                : StateColor(currentState);
+            stateAccentImage.color = isCompleted
+                ? new Color(0.70f, 1.00f, 0.78f, 1f)
+                : IsOnboardingActive()
+                    ? new Color(0.18f, 0.72f, 0.92f, 1f)
+                    : StateColor(currentState);
         }
 
         UpdateNextButtonVisibility();
@@ -787,8 +844,13 @@ public class TrainingSimulationUserGuide : MonoBehaviour
                 return message;
             }
 
+            string transitionSupport = currentState == ContextState.Transitioning
+                ? "<color=#FFB36E>Adaptive support</color>: preparing the next task cue.\n"
+                : string.Empty;
+
             evidenceText.text =
                 "<color=#76D7EA><b>Behavior analysis</b></color>: " + BuildStateReason() + "\n" +
+                transitionSupport +
                 "<color=#AFC7D6>Session activity</color>: Gaze " + FriendlyName(ResolveActiveAoi()) +
                 "  |  Hand " + handState +
                 "  |  Pose " + ResolvePostureLabel() +
@@ -854,8 +916,8 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         {
             completionMetricsText.text =
                 "<color=#76D7EA><b>Session result</b></color>\n" +
-                "3 of 3 objects sorted  |  States observed: " + BuildObservedStatesSummary() + "\n" +
-                "State changes observed: " + stateTransitionCount;
+                "Objects sorted: 3 / 3\n" +
+                "Context states observed: " + BuildObservedStatesSummary();
         }
 
         if (completionProofText != null)
@@ -1296,7 +1358,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         switch (state)
         {
             case ContextState.Engaged:
-                return new Color(0.50f, 0.20f, 0.75f);
+                return new Color(0.18f, 0.86f, 0.72f);
             case ContextState.Distracted:
                 return new Color(1.00f, 0.75f, 0.20f);
             case ContextState.Transitioning:

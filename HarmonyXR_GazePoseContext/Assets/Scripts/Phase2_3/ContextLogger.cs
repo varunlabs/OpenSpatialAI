@@ -28,6 +28,10 @@ public class ContextLogger
         public string posture_mode;
         public string boundary_type;
         public float locomotion_delta_m;
+        public bool gaze_stale;
+        public bool body_stale;
+        public bool hand_stale;
+        public bool spatial_stale;
 
         // Context output
         public string context_state;
@@ -109,6 +113,10 @@ public class ContextLogger
             posture_mode = frame.posture_mode,
             boundary_type = frame.boundary_type,
             locomotion_delta_m = frame.locomotion_delta_m,
+            gaze_stale = frame.gaze_stale,
+            body_stale = frame.body_stale,
+            hand_stale = frame.hand_stale,
+            spatial_stale = frame.spatial_stale,
             context_state = currentState,
             context_confidence = result.confidence,
             prev_context_state = prevStateString,

@@ -29,6 +29,11 @@ public struct SignalFrame
     public string boundary_type; // Current boundary/environment type
     public float locomotion_delta_m; // Displacement over current sample window in meters
 
+    public bool gaze_stale; // True when gaze source has not refreshed recently
+    public bool body_stale; // True when body/head source has not refreshed recently
+    public bool hand_stale; // True when hand source has not refreshed recently
+    public bool spatial_stale; // True when spatial context source has not refreshed recently
+
     public string context_state; // Derived context state label
     public float context_confidence; // Confidence score for context_state
     public string prev_context_state; // Previous derived context state label
