@@ -9,8 +9,9 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     [SerializeField] private HandCapture handCapture;
     [SerializeField] private Transform userHead;
     [SerializeField] private float guideDistanceFromHead = 1.75f;
-    [SerializeField] private float guideHeightOffset = 0.34f;
-    [SerializeField] private float guideSideOffset = 0.36f;
+    [SerializeField] private float guideHeightOffset = 0.02f;
+    [SerializeField] private float guideSideOffset = 0.32f;
+    [SerializeField] private bool lockGuidePositionAfterInitialPlacement = true;
     [SerializeField] private float carryDistanceFromHead = 1.15f;
     [SerializeField] private float carryHeightOffset = -0.18f;
     [SerializeField] private float dropHeightAbovePad = 0.14f;
@@ -32,6 +33,11 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
     private Canvas guideCanvas;
     private Image stateAccentImage;
+    private Image bodyCardImage;
+    private Image evidenceCardImage;
+    private Image completionHeroImage;
+    private Image completionMetricsImage;
+    private Image completionProofImage;
     private TMP_Text titleText;
     private TMP_Text statusText;
     private TMP_Text bodyText;
@@ -60,9 +66,10 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     private SignalFrame latestFrame;
     private int onboardingStepIndex;
     private bool hasReceivedSnapshot;
+    private bool guidePositionLocked;
     private int stateTransitionCount;
     private readonly HashSet<ContextState> observedStates = new HashSet<ContextState>();
-    private const int OnboardingStepCount = 4;
+    private const int OnboardingStepCount = 5;
 
     private struct ObjectVisual
     {
@@ -210,7 +217,10 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             return;
         }
 
-        ShowPinnedMessage("Placed " + FriendlyName(objectName) + ". Continue with the next object.", 2.5f);
+        ShowPinnedMessage(
+            "<color=#A8FFBF><b>Placement confirmed</b></color>\n" +
+            FriendlyName(objectName, capitalize: true) + " is sorted. The next object is ready.",
+            2.5f);
     }
 
     private void OnContextSnapshotUpdated(XRContextSnapshot snapshot)
@@ -323,9 +333,9 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             !string.Equals(objectName, activeObject, System.StringComparison.OrdinalIgnoreCase))
         {
             ShowPinnedMessage(
-                "Incorrect object selected.\n" +
+                "<color=#FFB36E><b>Selection guidance</b></color>\n" +
                 FriendlyName(objectName, capitalize: true) + " selected while " +
-                FriendlyName(activeObject) + " is the active task. Please select the " +
+                FriendlyName(activeObject) + " is the current focus. Please select the " +
                 FriendlyName(activeObject) + ".",
                 3f);
             return;
@@ -336,7 +346,10 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         selectedObjectStartRotation = taskObject.transform.rotation;
         selectedObjectColliders = taskObject.GetComponentsInChildren<Collider>(true);
         SetSelectedCollidersEnabled(false);
-        ShowPinnedMessage("Holding " + FriendlyName(objectName) + ". Aim at the highlighted " + FriendlyName(objectToReceptacle[objectName]) + " and release pinch.", 2f);
+        ShowPinnedMessage(
+            "<color=#76D7EA><b>Object selected</b></color>\n" +
+            "Align with the highlighted " + FriendlyName(objectToReceptacle[objectName]) + " and release pinch.",
+            2f);
     }
 
     private void UpdateCarriedObjectPosition()
@@ -379,11 +392,18 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         if (IsKnownReceptacle(currentAoi))
         {
-            ShowPinnedMessage("Wrong pad. Aim at the highlighted " + FriendlyName(expectedReceptacleName) + " and release again.", 2.5f);
+            ShowPinnedMessage(
+                "<color=#FFB36E><b>Placement guidance</b></color>\n" +
+                "Align with the highlighted " + FriendlyName(expectedReceptacleName) + " and release again.",
+                2.5f);
         }
         else
         {
-            ShowPinnedMessage("Not placed. Pick up " + FriendlyName(objectName) + " again, aim at the highlighted " + FriendlyName(expectedReceptacleName) + ", then release.", 3f);
+            ShowPinnedMessage(
+                "<color=#FFB36E><b>Placement not confirmed</b></color>\n" +
+                "Select the " + FriendlyName(objectName) + " again, align with the highlighted " +
+                FriendlyName(expectedReceptacleName) + ", then release.",
+                3f);
         }
 
         taskObject.transform.position = selectedObjectStartPosition;
@@ -487,7 +507,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         GameObject panelGo = new GameObject("GuidePanel");
         panelGo.transform.SetParent(canvasGo.transform, false);
         Image panelImage = panelGo.AddComponent<Image>();
-        panelImage.color = new Color(0.02f, 0.03f, 0.04f, 0.78f);
+        panelImage.color = new Color(0.015f, 0.026f, 0.036f, 0.86f);
         panelImage.raycastTarget = false;
 
         RectTransform panelRect = panelImage.rectTransform;
@@ -507,17 +527,24 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         accentRect.sizeDelta = new Vector2(0f, 8f);
         accentRect.anchoredPosition = Vector2.zero;
 
+        bodyCardImage = CreatePanelImage("BodyCard", panelGo.transform, new Vector2(34f, -130f), new Vector2(690f, 220f), new Color(0.035f, 0.060f, 0.075f, 0.72f));
+        evidenceCardImage = CreatePanelImage("EvidenceCard", panelGo.transform, new Vector2(34f, -364f), new Vector2(500f, 104f), new Color(0.020f, 0.040f, 0.052f, 0.66f));
+        completionHeroImage = CreatePanelImage("CompletionHeroCard", panelGo.transform, new Vector2(34f, -118f), new Vector2(690f, 90f), new Color(0.040f, 0.145f, 0.090f, 0.78f));
+        completionMetricsImage = CreatePanelImage("CompletionMetricsCard", panelGo.transform, new Vector2(34f, -224f), new Vector2(690f, 92f), new Color(0.035f, 0.060f, 0.075f, 0.72f));
+        completionProofImage = CreatePanelImage("CompletionProofCard", panelGo.transform, new Vector2(34f, -340f), new Vector2(690f, 116f), new Color(0.030f, 0.052f, 0.068f, 0.72f));
+
         titleText = CreateText("Title", panelGo.transform, new Vector2(34f, -26f), new Vector2(690f, 48f), 32f);
         titleText.fontStyle = FontStyles.Bold;
+        titleText.color = new Color(0.96f, 0.98f, 1f, 1f);
         statusText = CreateText("Status", panelGo.transform, new Vector2(34f, -82f), new Vector2(690f, 42f), 22f);
-        bodyText = CreateText("Body", panelGo.transform, new Vector2(34f, -140f), new Vector2(690f, 225f), 24f);
+        bodyText = CreateText("Body", panelGo.transform, new Vector2(56f, -150f), new Vector2(646f, 190f), 24f);
         evidenceText = CreateText("Evidence", panelGo.transform, new Vector2(34f, -372f), new Vector2(480f, 104f), 19f);
         evidenceText.color = new Color(0.78f, 0.84f, 0.90f, 1f);
-        completionBadgeText = CreateText("CompletionBadge", panelGo.transform, new Vector2(34f, -128f), new Vector2(690f, 74f), 30f);
+        completionBadgeText = CreateText("CompletionBadge", panelGo.transform, new Vector2(56f, -132f), new Vector2(646f, 76f), 31f);
         completionBadgeText.fontStyle = FontStyles.Bold;
         completionBadgeText.color = new Color(0.70f, 1.00f, 0.78f, 1f);
-        completionMetricsText = CreateText("CompletionMetrics", panelGo.transform, new Vector2(34f, -220f), new Vector2(690f, 96f), 24f);
-        completionProofText = CreateText("CompletionProof", panelGo.transform, new Vector2(34f, -338f), new Vector2(690f, 122f), 22f);
+        completionMetricsText = CreateText("CompletionMetrics", panelGo.transform, new Vector2(56f, -238f), new Vector2(646f, 70f), 23f);
+        completionProofText = CreateText("CompletionProof", panelGo.transform, new Vector2(56f, -354f), new Vector2(646f, 86f), 22f);
         completionProofText.color = new Color(0.84f, 0.90f, 0.96f, 1f);
         SetCompletionFieldsVisible(false);
         CreateNextButton(panelGo.transform);
@@ -559,6 +586,23 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         labelRect.offsetMax = new Vector2(-8f, -4f);
     }
 
+    private Image CreatePanelImage(string name, Transform parent, Vector2 anchoredPosition, Vector2 size, Color color)
+    {
+        GameObject panelGo = new GameObject(name);
+        panelGo.transform.SetParent(parent, false);
+        Image image = panelGo.AddComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+
+        RectTransform rect = image.rectTransform;
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+        return image;
+    }
+
     private TMP_Text CreateText(string name, Transform parent, Vector2 anchoredPosition, Vector2 size, float fontSize)
     {
         GameObject textGo = new GameObject(name);
@@ -568,6 +612,8 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         text.color = new Color(0.94f, 0.96f, 1f, 1f);
         text.alignment = TextAlignmentOptions.TopLeft;
         text.enableWordWrapping = true;
+        text.richText = true;
+        text.lineSpacing = 4f;
         text.raycastTarget = false;
 
         RectTransform rect = text.rectTransform;
@@ -586,6 +632,11 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             return;
         }
 
+        if (lockGuidePositionAfterInitialPlacement && guidePositionLocked)
+        {
+            return;
+        }
+
         Vector3 flatForward = Vector3.ProjectOnPlane(userHead.forward, Vector3.up).normalized;
         if (flatForward.sqrMagnitude < 0.0001f)
         {
@@ -600,6 +651,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         guideCanvas.transform.position = position;
         guideCanvas.transform.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+        guidePositionLocked = lockGuidePositionAfterInitialPlacement;
     }
 
     private void UpdateGuideText(string overrideMessage = null)
@@ -616,10 +668,13 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         }
 
         titleText.text = ResolveTitle();
+        titleText.color = completedObjects.Count >= objectToReceptacle.Count
+            ? new Color(0.86f, 1.00f, 0.90f, 1f)
+            : new Color(0.96f, 0.98f, 1f, 1f);
         if (statusText != null)
         {
             statusText.text = IsOnboardingActive()
-                ? "Step " + (onboardingStepIndex + 1) + " of " + OnboardingStepCount
+                ? "Research orientation  " + (onboardingStepIndex + 1) + " / " + OnboardingStepCount
                 : StateLabel(currentState) + "  -  " + StateMeaning(currentState);
             statusText.color = IsOnboardingActive()
                 ? new Color(0.18f, 0.72f, 0.92f, 1f)
@@ -665,8 +720,9 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         if (!string.IsNullOrEmpty(selectedObjectName))
         {
             bodyText.text = WithStatus(
-                "Holding " + FriendlyName(selectedObjectName) + ". Aim at the highlighted " +
-                FriendlyName(objectToReceptacle[selectedObjectName]) + " and release pinch.");
+                "<color=#76D7EA><b>Object selected</b></color>\n" +
+                "Align with the highlighted " + FriendlyName(objectToReceptacle[selectedObjectName]) +
+                " and release pinch.");
             return;
         }
 
@@ -677,25 +733,27 @@ public class TrainingSimulationUserGuide : MonoBehaviour
                 !string.Equals(currentAoi, activeObject, System.StringComparison.OrdinalIgnoreCase))
             {
                 bodyText.text = WithStatus(
-                    "Incorrect object in focus\n" +
-                    FriendlyName(currentAoi, capitalize: true) + " is not the active task.\n" +
+                    "<color=#FFB36E><b>Selection guidance</b></color>\n" +
+                    FriendlyName(currentAoi, capitalize: true) + " is not the current focus.\n" +
                     "Please select the " + FriendlyName(activeObject) + ".");
                 return;
             }
 
-            bodyText.text = WithStatus("Looking at " + FriendlyName(currentAoi) + ". Pinch and hold to pick it up.");
+            bodyText.text = WithStatus(
+                "<color=#76D7EA><b>Object aligned</b></color>\n" +
+                "Pinch and hold to pick up the " + FriendlyName(currentAoi) + ".");
             return;
         }
 
         string nextObject = GetNextIncompleteObject();
         string nextInstruction = string.IsNullOrEmpty(nextObject)
-            ? "Look at a cube, cylinder, or sphere."
-            : "Active task\nSelect the " + FriendlyName(nextObject) + ".";
+            ? "Focus on a cube, cylinder, or sphere."
+            : "<color=#76D7EA><b>Current focus</b></color>\nSelect the " + FriendlyName(nextObject) + ".";
 
         bodyText.text = WithStatus(
             nextInstruction + "\n" +
             "Pinch and hold to pick it up.\n" +
-            "Aim at the highlighted matching pad, then release.");
+            "Guide it to the highlighted matching pad, then release.");
     }
 
     private string ResolveTitle()
@@ -724,14 +782,14 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             if (completedObjects.Count >= objectToReceptacle.Count)
             {
                 evidenceText.text =
-                    "Analysis complete: gaze, hand activity, pose, and task behavior were interpreted during the session.\n" +
-                    "Adaptive responses: context-aware guidance and support controls were demonstrated.";
+                    "<color=#76D7EA><b>Analysis complete</b></color>: gaze, hand activity, pose, and task behavior were interpreted.\n" +
+                    "<color=#AFC7D6>Adaptive responses</color>: context-aware guidance and support controls were demonstrated.";
                 return message;
             }
 
             evidenceText.text =
-                "Behavior analysis: " + BuildStateReason() + "\n" +
-                "Session activity: Gaze " + FriendlyName(ResolveActiveAoi()) +
+                "<color=#76D7EA><b>Behavior analysis</b></color>: " + BuildStateReason() + "\n" +
+                "<color=#AFC7D6>Session activity</color>: Gaze " + FriendlyName(ResolveActiveAoi()) +
                 "  |  Hand " + handState +
                 "  |  Pose " + ResolvePostureLabel() +
                 "  |  Progress " + completedObjects.Count + "/" + objectToReceptacle.Count +
@@ -747,26 +805,31 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         {
             case 0:
                 return
-                    "What this is\n" +
-                    "A guided research prototype for adaptive XR.\n\n" +
-                    "It studies whether an XR system can understand user context from natural behavior.";
+                    "<size=30><color=#76D7EA><b>Adaptive XR Context Prototype</b></color></size>\n" +
+                    "<size=25><b>Research demonstration for context-aware support.</b></size>\n\n" +
+                    "<color=#D7E5EF>This experience presents a guided sorting task while the system interprets user context from XR behavior.</color>";
             case 1:
                 return
-                    "What the system analyzes\n" +
-                    "Gaze shows task attention.\n" +
-                    "Hand activity shows interaction.\n" +
-                    "Pose and movement show pauses or transitions.";
+                    "<color=#76D7EA><b>Adaptive XR Research Demonstration</b></color>\n" +
+                    "<size=27><b>A guided prototype for context-aware XR support.</b></size>\n\n" +
+                    "<color=#D7E5EF>The session studies whether an XR system can interpret user context from natural behavior.</color>";
             case 2:
                 return
-                    "Why you are sorting\n" +
-                    "The sorting task gives the system a controlled activity to observe.\n\n" +
-                    "The task is simple so the research signal is clear.";
+                    "<color=#76D7EA><b>Multimodal Context Signals</b></color>\n" +
+                    "<color=#FFFFFF><b>Gaze</b></color> indicates attention toward the task space.\n" +
+                    "<color=#FFFFFF><b>Hand activity</b></color> captures interaction intent.\n" +
+                    "<color=#FFFFFF><b>Pose and movement</b></color> reveal transitions, pauses, or disengagement.";
             case 3:
+                return
+                    "<color=#76D7EA><b>Controlled Task, Clear Evidence</b></color>\n" +
+                    "<size=27><b>The sorting activity creates focused behavior for observation.</b></size>\n\n" +
+                    "<color=#D7E5EF>Keeping the task simple helps the context signal remain clear and interpretable.</color>";
+            case 4:
             default:
                 return
-                    "What will be proven\n" +
-                    "The app detects engaged, distracted, transitioning, and idle states.\n\n" +
-                    "Then it shows how adaptive XR can support the user at the right moment.";
+                    "<color=#76D7EA><b>Demonstration Objective</b></color>\n" +
+                    "<color=#FFFFFF><b>Engaged</b></color>, <color=#FFFFFF><b>distracted</b></color>, <color=#FFFFFF><b>transitioning</b></color>, and <color=#FFFFFF><b>idle</b></color> states are inferred during the session.\n\n" +
+                    "<color=#D7E5EF>The prototype demonstrates how adaptive XR can provide support while the task remains unchanged.</color>";
         }
     }
 
@@ -783,28 +846,53 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         if (completionBadgeText != null)
         {
             completionBadgeText.text =
-                "Task Successfully Completed\n" +
-                "Adaptive XR Analysis Complete";
+                "<color=#A8FFBF>Task Successfully Completed</color>\n" +
+                "<size=24><color=#E8F4EE>Adaptive XR Analysis Complete</color></size>";
         }
 
         if (completionMetricsText != null)
         {
             completionMetricsText.text =
-                "Result: 3 of 3 objects sorted\n" +
-                "States observed: " + BuildObservedStatesSummary() + "\n" +
+                "<color=#76D7EA><b>Session result</b></color>\n" +
+                "3 of 3 objects sorted  |  States observed: " + BuildObservedStatesSummary() + "\n" +
                 "State changes observed: " + stateTransitionCount;
         }
 
         if (completionProofText != null)
         {
             completionProofText.text =
-                "Research Session Completed\n" +
-                "The proof-of-concept demonstrated that gaze, hand activity, pose, and task behavior can support adaptive XR context awareness.";
+                "<color=#76D7EA><b>Research proof</b></color>\n" +
+                "The session demonstrated that gaze, hand activity, pose, and task behavior can support adaptive XR context awareness.";
         }
     }
 
     private void SetCompletionFieldsVisible(bool visible)
     {
+        if (bodyCardImage != null)
+        {
+            bodyCardImage.gameObject.SetActive(!visible);
+        }
+
+        if (evidenceCardImage != null)
+        {
+            evidenceCardImage.gameObject.SetActive(!visible);
+        }
+
+        if (completionHeroImage != null)
+        {
+            completionHeroImage.gameObject.SetActive(visible);
+        }
+
+        if (completionMetricsImage != null)
+        {
+            completionMetricsImage.gameObject.SetActive(visible);
+        }
+
+        if (completionProofImage != null)
+        {
+            completionProofImage.gameObject.SetActive(visible);
+        }
+
         if (completionBadgeText != null)
         {
             completionBadgeText.gameObject.SetActive(visible);
@@ -962,7 +1050,10 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         onboardingStepIndex++;
         if (!IsOnboardingActive())
         {
-            ShowPinnedMessage("Research intro complete. Begin with the cube.", 2f);
+            ShowPinnedMessage(
+                "<color=#A8FFBF><b>Orientation complete</b></color>\n" +
+                "Begin the research task with the cube.",
+                2f);
         }
 
         UpdateGuideText();
@@ -992,9 +1083,11 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             return;
         }
 
-        evidenceText.text =
-            "Continue: press Next or pinch once.\n" +
-            "Research signals: Gaze  |  Hands  |  Pose  |  Task behavior";
+        evidenceText.text = onboardingStepIndex == 0
+            ? "<color=#76D7EA><b>Begin the orientation</b></color>: select Next or pinch once.\n" +
+              "<color=#AFC7D6>Session focus</color>: adaptive XR context awareness"
+            : "<color=#76D7EA><b>Advance the orientation</b></color>: select Next or pinch once.\n" +
+              "<color=#AFC7D6>Signal focus</color>: Gaze  |  Hand activity  |  Pose  |  Task behavior";
     }
 
     private string ResolvePostureLabel()
@@ -1067,24 +1160,24 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         string targetPad = objectToReceptacle.TryGetValue(activeObject, out string pad) ? pad : null;
         objectHintText.text = string.IsNullOrEmpty(selectedObjectName)
-            ? "Active task\nSelect the " + FriendlyName(activeObject)
-            : "Selected\n" + FriendlyName(activeObject, capitalize: true);
+            ? "Current focus\nSelect the " + FriendlyName(activeObject)
+            : "Object selected\n" + FriendlyName(activeObject, capitalize: true);
         if (objectHintImage != null)
         {
             objectHintImage.color = string.IsNullOrEmpty(selectedObjectName)
                 ? new Color(0.06f, 0.12f, 0.18f, 0.88f)
                 : new Color(0.04f, 0.16f, 0.10f, 0.88f);
         }
-        PositionHintCanvas(objectHintCanvas, activeVisual.transform, new Vector3(0f, 0.28f, 0f));
+        PositionHintCanvas(objectHintCanvas, activeVisual.transform, new Vector3(0f, 0.20f, 0f));
 
         if (!string.IsNullOrEmpty(targetPad) && visuals.TryGetValue(targetPad, out ObjectVisual padVisual))
         {
-            padHintText.text = "Target pad\nPlace on " + FriendlyName(targetPad);
+            padHintText.text = "Placement target\nUse " + FriendlyName(targetPad);
             if (padHintImage != null)
             {
                 padHintImage.color = new Color(0.07f, 0.11f, 0.16f, 0.88f);
             }
-            PositionHintCanvas(padHintCanvas, padVisual.transform, new Vector3(0f, 0.22f, 0f));
+            PositionHintCanvas(padHintCanvas, padVisual.transform, new Vector3(0f, 0.16f, 0f));
         }
     }
 

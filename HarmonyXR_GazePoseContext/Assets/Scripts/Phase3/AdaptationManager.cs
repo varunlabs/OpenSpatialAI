@@ -29,7 +29,7 @@ public class AdaptationManager : MonoBehaviour
     [SerializeField] private Vector3 nextTaskPanelLocalOffset = new Vector3(0f, 52f, 60f);
     [SerializeField] private Vector3 distractedPanelLocalOffset = new Vector3(260f, 120f, 70f);
     [SerializeField] private Vector3 restPanelLocalOffset = new Vector3(-260f, -120f, 70f);
-    [SerializeField] private Vector3 persistentControlsLocalOffset = new Vector3(-250f, -135f, 70f);
+    [SerializeField] private Vector3 persistentControlsLocalOffset = new Vector3(-430f, -245f, 70f);
     [SerializeField] private Vector3 persistentStatsLocalOffset = new Vector3(430f, 125f, 90f);
     [SerializeField, Range(0f, 1f)] private float takeBreakDimAlpha = 0.08f;
     [SerializeField, Range(0f, 1f)] private float takeBreakVignetteIntensity = 0.18f;
@@ -880,7 +880,7 @@ public class AdaptationManager : MonoBehaviour
         uiAnchorRoot.position = userHead.position + flatForward * headsetUiDistance + Vector3.up * headsetUiVerticalOffset;
         uiAnchorRoot.rotation = Quaternion.LookRotation(flatForward, Vector3.up);
 
-        PositionRuntimePanel(persistentControlsRoot, new Vector2(760f, 150f), persistentControlsLocalOffset);
+        PositionRuntimePanel(persistentControlsRoot, new Vector2(640f, 132f), persistentControlsLocalOffset);
         PositionRuntimePanel(persistentStatsRoot, new Vector2(860f, 330f), persistentStatsLocalOffset);
         NormalizePanelRect(distractedEdgePanel != null ? distractedEdgePanel.gameObject : null, new Vector2(280f, 160f), distractedPanelLocalOffset);
         NormalizePanelRect(restPanel, new Vector2(360f, 260f), restPanelLocalOffset);
@@ -1291,9 +1291,9 @@ public class AdaptationManager : MonoBehaviour
             panelGo.AddComponent<CanvasGroup>();
 
             CreatePersistentControlsTitle();
-            CreatePersistentButton("Continue", new Vector2(-245f, -34f), OnContinuePressed);
-            CreatePersistentButton("Take a break", new Vector2(0f, -34f), OnTakeBreakPressed);
-            CreatePersistentButton("Recenter view", new Vector2(245f, -34f), OnRecenterViewPressed);
+            CreatePersistentButton("Continue", new Vector2(-205f, -30f), OnContinuePressed);
+            CreatePersistentButton("Take a break", new Vector2(0f, -30f), OnTakeBreakPressed);
+            CreatePersistentButton("Recenter view", new Vector2(205f, -30f), OnRecenterViewPressed);
         }
         else if (persistentControlsRoot.Find("IdleActionsTitle") == null)
         {
@@ -1303,7 +1303,7 @@ public class AdaptationManager : MonoBehaviour
         persistentControlsRoot.anchorMin = new Vector2(0.5f, 0.5f);
         persistentControlsRoot.anchorMax = new Vector2(0.5f, 0.5f);
         persistentControlsRoot.pivot = new Vector2(0.5f, 0.5f);
-        persistentControlsRoot.sizeDelta = new Vector2(760f, 150f);
+        persistentControlsRoot.sizeDelta = new Vector2(640f, 132f);
         persistentControlsRoot.anchoredPosition = new Vector2(persistentControlsLocalOffset.x, persistentControlsLocalOffset.y);
         persistentControlsRoot.localPosition = new Vector3(persistentControlsLocalOffset.x, persistentControlsLocalOffset.y, persistentControlsLocalOffset.z);
         persistentControlsRoot.localRotation = Quaternion.identity;
@@ -1333,8 +1333,8 @@ public class AdaptationManager : MonoBehaviour
         titleRect.anchorMin = new Vector2(0.5f, 0.5f);
         titleRect.anchorMax = new Vector2(0.5f, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
-        titleRect.sizeDelta = new Vector2(700f, 36f);
-        titleRect.anchoredPosition = new Vector2(0f, 42f);
+        titleRect.sizeDelta = new Vector2(600f, 32f);
+        titleRect.anchoredPosition = new Vector2(0f, 36f);
         titleRect.localScale = Vector3.one;
     }
 
@@ -1352,15 +1352,15 @@ public class AdaptationManager : MonoBehaviour
             string label = GetButtonLabel(button);
             if (label.Contains("continue"))
             {
-                PositionRuntimeButton(button, new Vector2(-245f, -34f));
+                PositionRuntimeButton(button, new Vector2(-205f, -30f));
             }
             else if (label.Contains("break"))
             {
-                PositionRuntimeButton(button, new Vector2(0f, -34f));
+                PositionRuntimeButton(button, new Vector2(0f, -30f));
             }
             else if (label.Contains("recenter"))
             {
-                PositionRuntimeButton(button, new Vector2(245f, -34f));
+                PositionRuntimeButton(button, new Vector2(205f, -30f));
             }
         }
     }
@@ -1375,7 +1375,7 @@ public class AdaptationManager : MonoBehaviour
         RectTransform rect = button.transform as RectTransform;
         if (rect != null)
         {
-            rect.sizeDelta = new Vector2(220f, 58f);
+            rect.sizeDelta = new Vector2(180f, 52f);
             rect.anchoredPosition = position;
             rect.localPosition = new Vector3(position.x, position.y, 0.02f);
             rect.localScale = Vector3.one;
@@ -1402,7 +1402,7 @@ public class AdaptationManager : MonoBehaviour
         buttonGo.transform.SetParent(persistentControlsRoot, false);
 
         RectTransform rect = buttonGo.AddComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(230f, 58f);
+        rect.sizeDelta = new Vector2(180f, 52f);
         rect.anchoredPosition = anchoredPosition;
 
         Image image = buttonGo.AddComponent<Image>();

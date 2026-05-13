@@ -558,10 +558,11 @@ public class XRAppShellController : MonoBehaviour
         }
 
         Quaternion yaw = Quaternion.LookRotation(flatForward, Vector3.up);
-        float estimatedFloorY = Mathf.Max(0f, head.position.y - 1.6f);
+        float comfortableTableY = head.position.y - 0.52f;
+        float taskBaseY = comfortableTableY - 0.75f;
         Vector3 taskAnchorPosition = new Vector3(
             head.position.x + flatForward.x * trainingSceneDistanceFromHead,
-            estimatedFloorY,
+            taskBaseY,
             head.position.z + flatForward.z * trainingSceneDistanceFromHead);
 
         AlignTransform("TaskAreaAnchor", taskAnchorPosition + new Vector3(0f, 0.85f, 0f), yaw, Vector3.one);
