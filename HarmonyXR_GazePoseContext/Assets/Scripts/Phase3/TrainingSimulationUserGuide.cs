@@ -9,14 +9,14 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     [SerializeField] private HandCapture handCapture;
     [SerializeField] private Transform userHead;
     [SerializeField] private float guideDistanceFromHead = 1.75f;
-    [SerializeField] private float guideHeightOffset = 0.32f;
-    [SerializeField] private float guideSideOffset = 0.48f;
+    [SerializeField] private float guideHeightOffset = 0.34f;
+    [SerializeField] private float guideSideOffset = 0.36f;
     [SerializeField] private float carryDistanceFromHead = 1.15f;
     [SerializeField] private float carryHeightOffset = -0.18f;
     [SerializeField] private float dropHeightAbovePad = 0.14f;
     [SerializeField] private float placementAssistAngleDegrees = 24f;
     [SerializeField] private float placementAssistMaxDistance = 3.5f;
-    [SerializeField] private float onboardingSeconds = 6f;
+    [SerializeField] private bool requireOnboardingConfirmation = true;
 
     private readonly Dictionary<string, ObjectVisual> visuals = new Dictionary<string, ObjectVisual>();
     private readonly Dictionary<string, SortableTaskObject> taskObjects = new Dictionary<string, SortableTaskObject>();
@@ -31,9 +31,23 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     private readonly HashSet<string> completedObjects = new HashSet<string>();
 
     private Canvas guideCanvas;
+    private Image stateAccentImage;
     private TMP_Text titleText;
     private TMP_Text statusText;
     private TMP_Text bodyText;
+    private TMP_Text evidenceText;
+    private TMP_Text completionBadgeText;
+    private TMP_Text completionMetricsText;
+    private TMP_Text completionProofText;
+    private Button nextButton;
+    private TMP_Text nextButtonText;
+    private Canvas objectHintCanvas;
+    private TMP_Text objectHintText;
+    private Image objectHintImage;
+    private Canvas padHintCanvas;
+    private TMP_Text padHintText;
+    private Image padHintImage;
+    private ContextDebugTester contextSource;
     private string currentAoi = "none";
     private ContextState currentState = ContextState.Idle;
     private string selectedObjectName;
@@ -42,8 +56,13 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     private Collider[] selectedObjectColliders;
     private bool wasPinching;
     private float overrideMessageUntil;
-    private float onboardingUntil;
     private string pinnedMessage;
+    private SignalFrame latestFrame;
+    private int onboardingStepIndex;
+    private bool hasReceivedSnapshot;
+    private int stateTransitionCount;
+    private readonly HashSet<ContextState> observedStates = new HashSet<ContextState>();
+    private const int OnboardingStepCount = 4;
 
     private struct ObjectVisual
     {
@@ -60,7 +79,6 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         RegisterObjects();
         RegisterPlacementEvents();
         EnsureGuideCanvas();
-        onboardingUntil = Time.time + onboardingSeconds;
         UpdateGuideText();
 
         if (appShell != null)
@@ -90,6 +108,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     {
         ResolveReferences();
         PositionGuideInView();
+        UpdateSpatialHints();
         RefreshObjectHighlights();
         UpdateGuideText();
     }
@@ -109,6 +128,11 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         if (handCapture == null)
         {
             handCapture = FindObjectOfType<HandCapture>(true);
+        }
+
+        if (contextSource == null)
+        {
+            contextSource = FindObjectOfType<ContextDebugTester>(true);
         }
     }
 
@@ -180,7 +204,9 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         SetCompletedColor(receptacleName);
         if (completedObjects.Count >= objectToReceptacle.Count)
         {
-            ShowPinnedMessage("All objects sorted. Task complete.", 3f);
+            pinnedMessage = null;
+            overrideMessageUntil = 0f;
+            UpdateGuideText();
             return;
         }
 
@@ -189,8 +215,21 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
     private void OnContextSnapshotUpdated(XRContextSnapshot snapshot)
     {
+        if (hasReceivedSnapshot && snapshot.state != currentState)
+        {
+            stateTransitionCount++;
+        }
+
+        hasReceivedSnapshot = true;
         currentAoi = string.IsNullOrWhiteSpace(snapshot.aoiHit) ? "none" : snapshot.aoiHit;
         currentState = snapshot.state;
+        observedStates.Add(snapshot.state);
+
+        if (contextSource != null)
+        {
+            latestFrame = contextSource.LatestFrame;
+        }
+
         UpdateGuideText();
     }
 
@@ -240,6 +279,17 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         bool pinchStarted = isPinching && !wasPinching;
         bool pinchReleased = !isPinching && wasPinching;
 
+        if (IsOnboardingActive())
+        {
+            if (pinchStarted)
+            {
+                AdvanceOnboarding();
+            }
+
+            wasPinching = isPinching;
+            return;
+        }
+
         if (pinchStarted && string.IsNullOrEmpty(selectedObjectName))
         {
             TryBeginCarry(currentAoi);
@@ -265,6 +315,19 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             !taskObjects.TryGetValue(objectName, out SortableTaskObject taskObject) ||
             taskObject == null)
         {
+            return;
+        }
+
+        string activeObject = GetNextIncompleteObject();
+        if (!string.IsNullOrEmpty(activeObject) &&
+            !string.Equals(objectName, activeObject, System.StringComparison.OrdinalIgnoreCase))
+        {
+            ShowPinnedMessage(
+                "Incorrect object selected.\n" +
+                FriendlyName(objectName, capitalize: true) + " selected while " +
+                FriendlyName(activeObject) + " is the active task. Please select the " +
+                FriendlyName(activeObject) + ".",
+                3f);
             return;
         }
 
@@ -418,8 +481,8 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         canvasGo.AddComponent<GraphicRaycaster>();
 
         RectTransform canvasRect = guideCanvas.GetComponent<RectTransform>();
-        canvasRect.sizeDelta = new Vector2(560f, 340f);
-        canvasRect.localScale = Vector3.one * 0.00125f;
+        canvasRect.sizeDelta = new Vector2(760f, 500f);
+        canvasRect.localScale = Vector3.one * 0.0011f;
 
         GameObject panelGo = new GameObject("GuidePanel");
         panelGo.transform.SetParent(canvasGo.transform, false);
@@ -433,9 +496,67 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         panelRect.offsetMin = Vector2.zero;
         panelRect.offsetMax = Vector2.zero;
 
-        titleText = CreateText("Title", panelGo.transform, new Vector2(34f, -24f), new Vector2(492f, 42f), 24f);
-        statusText = CreateText("Status", panelGo.transform, new Vector2(34f, -64f), new Vector2(492f, 30f), 18f);
-        bodyText = CreateText("Body", panelGo.transform, new Vector2(34f, -106f), new Vector2(492f, 190f), 20f);
+        GameObject accentGo = new GameObject("StateAccent");
+        accentGo.transform.SetParent(panelGo.transform, false);
+        stateAccentImage = accentGo.AddComponent<Image>();
+        stateAccentImage.raycastTarget = false;
+        RectTransform accentRect = stateAccentImage.rectTransform;
+        accentRect.anchorMin = new Vector2(0f, 1f);
+        accentRect.anchorMax = new Vector2(1f, 1f);
+        accentRect.pivot = new Vector2(0.5f, 1f);
+        accentRect.sizeDelta = new Vector2(0f, 8f);
+        accentRect.anchoredPosition = Vector2.zero;
+
+        titleText = CreateText("Title", panelGo.transform, new Vector2(34f, -26f), new Vector2(690f, 48f), 32f);
+        titleText.fontStyle = FontStyles.Bold;
+        statusText = CreateText("Status", panelGo.transform, new Vector2(34f, -82f), new Vector2(690f, 42f), 22f);
+        bodyText = CreateText("Body", panelGo.transform, new Vector2(34f, -140f), new Vector2(690f, 225f), 24f);
+        evidenceText = CreateText("Evidence", panelGo.transform, new Vector2(34f, -372f), new Vector2(480f, 104f), 19f);
+        evidenceText.color = new Color(0.78f, 0.84f, 0.90f, 1f);
+        completionBadgeText = CreateText("CompletionBadge", panelGo.transform, new Vector2(34f, -128f), new Vector2(690f, 74f), 30f);
+        completionBadgeText.fontStyle = FontStyles.Bold;
+        completionBadgeText.color = new Color(0.70f, 1.00f, 0.78f, 1f);
+        completionMetricsText = CreateText("CompletionMetrics", panelGo.transform, new Vector2(34f, -220f), new Vector2(690f, 96f), 24f);
+        completionProofText = CreateText("CompletionProof", panelGo.transform, new Vector2(34f, -338f), new Vector2(690f, 122f), 22f);
+        completionProofText.color = new Color(0.84f, 0.90f, 0.96f, 1f);
+        SetCompletionFieldsVisible(false);
+        CreateNextButton(panelGo.transform);
+        EnsureSpatialHintCanvases();
+    }
+
+    private void CreateNextButton(Transform parent)
+    {
+        GameObject buttonGo = new GameObject("OnboardingNextButton");
+        buttonGo.transform.SetParent(parent, false);
+
+        RectTransform rect = buttonGo.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(1f, 0f);
+        rect.sizeDelta = new Vector2(190f, 58f);
+        rect.anchoredPosition = new Vector2(-34f, 30f);
+
+        Image image = buttonGo.AddComponent<Image>();
+        image.color = new Color(0.12f, 0.22f, 0.34f, 0.96f);
+
+        nextButton = buttonGo.AddComponent<Button>();
+        nextButton.targetGraphic = image;
+        nextButton.onClick.AddListener(AdvanceOnboarding);
+
+        GameObject labelGo = new GameObject("Label");
+        labelGo.transform.SetParent(buttonGo.transform, false);
+        nextButtonText = labelGo.AddComponent<TextMeshProUGUI>();
+        nextButtonText.fontSize = 24f;
+        nextButtonText.fontStyle = FontStyles.Bold;
+        nextButtonText.color = Color.white;
+        nextButtonText.alignment = TextAlignmentOptions.Center;
+        nextButtonText.raycastTarget = false;
+
+        RectTransform labelRect = nextButtonText.rectTransform;
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(8f, 4f);
+        labelRect.offsetMax = new Vector2(-8f, -4f);
     }
 
     private TMP_Text CreateText(string name, Transform parent, Vector2 anchoredPosition, Vector2 size, float fontSize)
@@ -488,12 +609,31 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             return;
         }
 
-        titleText.text = "Sort the objects";
+        ResolveReferences();
+        if (contextSource != null)
+        {
+            latestFrame = contextSource.LatestFrame;
+        }
+
+        titleText.text = ResolveTitle();
         if (statusText != null)
         {
-            statusText.text = "State: " + StateLabel(currentState);
-            statusText.color = StateColor(currentState);
+            statusText.text = IsOnboardingActive()
+                ? "Step " + (onboardingStepIndex + 1) + " of " + OnboardingStepCount
+                : StateLabel(currentState) + "  -  " + StateMeaning(currentState);
+            statusText.color = IsOnboardingActive()
+                ? new Color(0.18f, 0.72f, 0.92f, 1f)
+                : StateColor(currentState);
         }
+
+        if (stateAccentImage != null)
+        {
+            stateAccentImage.color = IsOnboardingActive()
+                ? new Color(0.18f, 0.72f, 0.92f, 1f)
+                : StateColor(currentState);
+        }
+
+        UpdateNextButtonVisibility();
 
         if (Time.time < overrideMessageUntil && !string.IsNullOrWhiteSpace(pinnedMessage))
         {
@@ -509,16 +649,16 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         if (completedObjects.Count >= objectToReceptacle.Count)
         {
-            bodyText.text = WithStatus("All 3 objects are sorted. The training task is complete.");
+            ShowCompletionSummary();
             return;
         }
 
-        if (Time.time < onboardingUntil)
+        SetCompletionFieldsVisible(false);
+
+        if (IsOnboardingActive())
         {
-            bodyText.text = WithStatus(
-                "Sort the 3 objects into matching pads.\n" +
-                "Look at an object, pinch and hold to pick it up.\n" +
-                "Aim at the highlighted matching pad, then release.");
+            bodyText.text = BuildOnboardingMessage();
+            UpdateEvidencePanelForOnboarding();
             return;
         }
 
@@ -532,6 +672,17 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         if (objectToReceptacle.ContainsKey(currentAoi))
         {
+            string activeObject = GetNextIncompleteObject();
+            if (!string.IsNullOrEmpty(activeObject) &&
+                !string.Equals(currentAoi, activeObject, System.StringComparison.OrdinalIgnoreCase))
+            {
+                bodyText.text = WithStatus(
+                    "Incorrect object in focus\n" +
+                    FriendlyName(currentAoi, capitalize: true) + " is not the active task.\n" +
+                    "Please select the " + FriendlyName(activeObject) + ".");
+                return;
+            }
+
             bodyText.text = WithStatus("Looking at " + FriendlyName(currentAoi) + ". Pinch and hold to pick it up.");
             return;
         }
@@ -539,7 +690,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         string nextObject = GetNextIncompleteObject();
         string nextInstruction = string.IsNullOrEmpty(nextObject)
             ? "Look at a cube, cylinder, or sphere."
-            : "Next: look at the " + FriendlyName(nextObject) + ".";
+            : "Active task\nSelect the " + FriendlyName(nextObject) + ".";
 
         bodyText.text = WithStatus(
             nextInstruction + "\n" +
@@ -547,15 +698,411 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             "Aim at the highlighted matching pad, then release.");
     }
 
+    private string ResolveTitle()
+    {
+        if (completedObjects.Count >= objectToReceptacle.Count)
+        {
+            return "Research Session Completed";
+        }
+
+        if (IsOnboardingActive())
+        {
+            return "Adaptive XR Context Prototype";
+        }
+
+        return "Live Context-Guided Task";
+    }
+
     private string WithStatus(string message)
     {
-        string handState = handCapture != null && (handCapture.left_pinch || handCapture.right_pinch)
+        string handState = IsPinching()
             ? "pinching"
             : "open";
         string selected = string.IsNullOrEmpty(selectedObjectName) ? "none" : FriendlyName(selectedObjectName);
-        return message + "\n\nProgress: " + completedObjects.Count + "/" + objectToReceptacle.Count +
-               "  |  Hand: " + handState +
-               "  |  Selected: " + selected;
+        if (evidenceText != null)
+        {
+            if (completedObjects.Count >= objectToReceptacle.Count)
+            {
+                evidenceText.text =
+                    "Analysis complete: gaze, hand activity, pose, and task behavior were interpreted during the session.\n" +
+                    "Adaptive responses: context-aware guidance and support controls were demonstrated.";
+                return message;
+            }
+
+            evidenceText.text =
+                "Behavior analysis: " + BuildStateReason() + "\n" +
+                "Session activity: Gaze " + FriendlyName(ResolveActiveAoi()) +
+                "  |  Hand " + handState +
+                "  |  Pose " + ResolvePostureLabel() +
+                "  |  Progress " + completedObjects.Count + "/" + objectToReceptacle.Count +
+                "  |  Selected " + selected;
+        }
+
+        return message;
+    }
+
+    private string BuildOnboardingMessage()
+    {
+        switch (onboardingStepIndex)
+        {
+            case 0:
+                return
+                    "What this is\n" +
+                    "A guided research prototype for adaptive XR.\n\n" +
+                    "It studies whether an XR system can understand user context from natural behavior.";
+            case 1:
+                return
+                    "What the system analyzes\n" +
+                    "Gaze shows task attention.\n" +
+                    "Hand activity shows interaction.\n" +
+                    "Pose and movement show pauses or transitions.";
+            case 2:
+                return
+                    "Why you are sorting\n" +
+                    "The sorting task gives the system a controlled activity to observe.\n\n" +
+                    "The task is simple so the research signal is clear.";
+            case 3:
+            default:
+                return
+                    "What will be proven\n" +
+                    "The app detects engaged, distracted, transitioning, and idle states.\n\n" +
+                    "Then it shows how adaptive XR can support the user at the right moment.";
+        }
+    }
+
+    private void ShowCompletionSummary()
+    {
+        SetCompletionFieldsVisible(true);
+
+        bodyText.text = string.Empty;
+        if (evidenceText != null)
+        {
+            evidenceText.gameObject.SetActive(false);
+        }
+
+        if (completionBadgeText != null)
+        {
+            completionBadgeText.text =
+                "Task Successfully Completed\n" +
+                "Adaptive XR Analysis Complete";
+        }
+
+        if (completionMetricsText != null)
+        {
+            completionMetricsText.text =
+                "Result: 3 of 3 objects sorted\n" +
+                "States observed: " + BuildObservedStatesSummary() + "\n" +
+                "State changes observed: " + stateTransitionCount;
+        }
+
+        if (completionProofText != null)
+        {
+            completionProofText.text =
+                "Research Session Completed\n" +
+                "The proof-of-concept demonstrated that gaze, hand activity, pose, and task behavior can support adaptive XR context awareness.";
+        }
+    }
+
+    private void SetCompletionFieldsVisible(bool visible)
+    {
+        if (completionBadgeText != null)
+        {
+            completionBadgeText.gameObject.SetActive(visible);
+        }
+
+        if (completionMetricsText != null)
+        {
+            completionMetricsText.gameObject.SetActive(visible);
+        }
+
+        if (completionProofText != null)
+        {
+            completionProofText.gameObject.SetActive(visible);
+        }
+
+        if (evidenceText != null && !visible)
+        {
+            evidenceText.gameObject.SetActive(true);
+        }
+    }
+
+    private string BuildObservedStatesSummary()
+    {
+        ContextState[] orderedStates =
+        {
+            ContextState.Engaged,
+            ContextState.Distracted,
+            ContextState.Transitioning,
+            ContextState.Idle
+        };
+
+        List<string> labels = new List<string>();
+        for (int i = 0; i < orderedStates.Length; i++)
+        {
+            if (observedStates.Contains(orderedStates[i]))
+            {
+                labels.Add(StateLabel(orderedStates[i]));
+            }
+        }
+
+        if (labels.Count == 0)
+        {
+            return StateLabel(currentState);
+        }
+
+        return string.Join(", ", labels);
+    }
+
+    private string BuildStateReason()
+    {
+        string aoi = ResolveActiveAoi();
+        bool onTaskAoi = IsTaskRelevantAoi(aoi);
+        bool pinching = IsPinching();
+        int interactions = Mathf.Max(0, latestFrame.interaction_count_10s);
+        float fixation = Mathf.Max(0f, latestFrame.fixation_duration_s);
+        float bodyVelocity = Mathf.Max(0f, latestFrame.avg_joint_velocity);
+        string posture = string.IsNullOrWhiteSpace(latestFrame.posture_class) ? "unknown" : latestFrame.posture_class.ToLowerInvariant();
+
+        switch (currentState)
+        {
+            case ContextState.Engaged:
+                if (onTaskAoi && (pinching || !string.IsNullOrEmpty(selectedObjectName) || interactions > 0))
+                {
+                    return "Gaze is on " + FriendlyName(aoi) + " and task interaction is active.";
+                }
+
+                if (onTaskAoi && fixation >= 0.2f)
+                {
+                    return "Gaze has remained on the task area long enough to suggest stable focus.";
+                }
+
+                return "Task-relevant gaze is more stable than distractive scanning.";
+
+            case ContextState.Distracted:
+                if (!onTaskAoi && bodyVelocity >= 0.03f)
+                {
+                    return "Attention moved away from the task area while body movement increased.";
+                }
+
+                if (!onTaskAoi)
+                {
+                    return "Gaze is off the task objects and recent task interaction is low.";
+                }
+
+                return "Task focus appears unstable and attention is drifting away.";
+
+            case ContextState.Transitioning:
+                if (pinching || !string.IsNullOrEmpty(selectedObjectName))
+                {
+                    return "Hand activity suggests the user is moving between task steps.";
+                }
+
+                if (bodyVelocity >= 0.03f || posture == "leaning" || posture == "reaching")
+                {
+                    return "Body posture and movement suggest repositioning between targets.";
+                }
+
+                return "Gaze and posture indicate a shift between task targets rather than a settled state.";
+
+            case ContextState.Idle:
+            default:
+                if (!pinching && interactions == 0 && bodyVelocity < 0.05f)
+                {
+                    return "There is little hand activity or body movement near the task.";
+                }
+
+                return "Task-directed activity has paused long enough to be treated as idle.";
+        }
+    }
+
+    private string ResolveActiveAoi()
+    {
+        if (!string.IsNullOrWhiteSpace(currentAoi) && currentAoi != "none")
+        {
+            return currentAoi;
+        }
+
+        if (!string.IsNullOrWhiteSpace(latestFrame.aoi_hit) && latestFrame.aoi_hit != "none")
+        {
+            return latestFrame.aoi_hit;
+        }
+
+        return "task area";
+    }
+
+    private bool IsTaskRelevantAoi(string aoi)
+    {
+        return objectToReceptacle.ContainsKey(aoi) || IsKnownReceptacle(aoi);
+    }
+
+    private bool IsPinching()
+    {
+        if (handCapture != null && (handCapture.left_pinch || handCapture.right_pinch))
+        {
+            return true;
+        }
+
+        return latestFrame.left_pinch || latestFrame.right_pinch;
+    }
+
+    private bool IsOnboardingActive()
+    {
+        return requireOnboardingConfirmation &&
+               completedObjects.Count == 0 &&
+               onboardingStepIndex < OnboardingStepCount;
+    }
+
+    private void AdvanceOnboarding()
+    {
+        if (!IsOnboardingActive())
+        {
+            return;
+        }
+
+        onboardingStepIndex++;
+        if (!IsOnboardingActive())
+        {
+            ShowPinnedMessage("Research intro complete. Begin with the cube.", 2f);
+        }
+
+        UpdateGuideText();
+    }
+
+    private void UpdateNextButtonVisibility()
+    {
+        if (nextButton == null)
+        {
+            return;
+        }
+
+        bool show = IsOnboardingActive();
+        nextButton.gameObject.SetActive(show);
+        nextButton.interactable = show;
+
+        if (nextButtonText != null)
+        {
+            nextButtonText.text = onboardingStepIndex >= OnboardingStepCount - 1 ? "Begin" : "Next";
+        }
+    }
+
+    private void UpdateEvidencePanelForOnboarding()
+    {
+        if (evidenceText == null)
+        {
+            return;
+        }
+
+        evidenceText.text =
+            "Continue: press Next or pinch once.\n" +
+            "Research signals: Gaze  |  Hands  |  Pose  |  Task behavior";
+    }
+
+    private string ResolvePostureLabel()
+    {
+        if (!string.IsNullOrWhiteSpace(latestFrame.posture_class) && latestFrame.posture_class != "unknown")
+        {
+            return latestFrame.posture_class.ToLowerInvariant();
+        }
+
+        return "stable";
+    }
+
+    private void EnsureSpatialHintCanvases()
+    {
+        objectHintText = CreateSpatialHint("ActiveObjectHint", out objectHintCanvas, out objectHintImage);
+        padHintText = CreateSpatialHint("TargetPadHint", out padHintCanvas, out padHintImage);
+    }
+
+    private TMP_Text CreateSpatialHint(string name, out Canvas canvas, out Image panelImage)
+    {
+        GameObject canvasGo = new GameObject(name);
+        canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 55;
+
+        RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(310f, 92f);
+        canvasRect.localScale = Vector3.one * 0.001f;
+
+        GameObject panelGo = new GameObject("Panel");
+        panelGo.transform.SetParent(canvasGo.transform, false);
+        panelImage = panelGo.AddComponent<Image>();
+        panelImage.color = new Color(0.03f, 0.05f, 0.07f, 0.84f);
+        panelImage.raycastTarget = false;
+
+        RectTransform panelRect = panelImage.rectTransform;
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+
+        TMP_Text text = CreateText("Label", panelGo.transform, new Vector2(18f, -14f), new Vector2(274f, 68f), 22f);
+        text.fontStyle = FontStyles.Bold;
+        return text;
+    }
+
+    private void UpdateSpatialHints()
+    {
+        if (objectHintCanvas == null || padHintCanvas == null)
+        {
+            return;
+        }
+
+        bool showHints = !IsOnboardingActive() && completedObjects.Count < objectToReceptacle.Count;
+        objectHintCanvas.gameObject.SetActive(showHints);
+        padHintCanvas.gameObject.SetActive(showHints);
+
+        if (!showHints || userHead == null)
+        {
+            return;
+        }
+
+        string activeObject = string.IsNullOrEmpty(selectedObjectName) ? GetNextIncompleteObject() : selectedObjectName;
+        if (string.IsNullOrEmpty(activeObject) || !visuals.TryGetValue(activeObject, out ObjectVisual activeVisual))
+        {
+            return;
+        }
+
+        string targetPad = objectToReceptacle.TryGetValue(activeObject, out string pad) ? pad : null;
+        objectHintText.text = string.IsNullOrEmpty(selectedObjectName)
+            ? "Active task\nSelect the " + FriendlyName(activeObject)
+            : "Selected\n" + FriendlyName(activeObject, capitalize: true);
+        if (objectHintImage != null)
+        {
+            objectHintImage.color = string.IsNullOrEmpty(selectedObjectName)
+                ? new Color(0.06f, 0.12f, 0.18f, 0.88f)
+                : new Color(0.04f, 0.16f, 0.10f, 0.88f);
+        }
+        PositionHintCanvas(objectHintCanvas, activeVisual.transform, new Vector3(0f, 0.28f, 0f));
+
+        if (!string.IsNullOrEmpty(targetPad) && visuals.TryGetValue(targetPad, out ObjectVisual padVisual))
+        {
+            padHintText.text = "Target pad\nPlace on " + FriendlyName(targetPad);
+            if (padHintImage != null)
+            {
+                padHintImage.color = new Color(0.07f, 0.11f, 0.16f, 0.88f);
+            }
+            PositionHintCanvas(padHintCanvas, padVisual.transform, new Vector3(0f, 0.22f, 0f));
+        }
+    }
+
+    private void PositionHintCanvas(Canvas canvas, Transform anchor, Vector3 worldOffset)
+    {
+        if (canvas == null || anchor == null || userHead == null)
+        {
+            return;
+        }
+
+        canvas.transform.position = anchor.position + worldOffset;
+        Vector3 faceDirection = Vector3.ProjectOnPlane(canvas.transform.position - userHead.position, Vector3.up).normalized;
+        if (faceDirection.sqrMagnitude < 0.0001f)
+        {
+            faceDirection = Vector3.forward;
+        }
+
+        canvas.transform.rotation = Quaternion.LookRotation(faceDirection, Vector3.up);
     }
 
     private string GetNextIncompleteObject()
@@ -580,25 +1127,43 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         UpdateGuideText();
     }
 
-    private static string FriendlyName(string objectName)
+    private static string FriendlyName(string objectName, bool capitalize = false)
     {
+        string label;
         switch (objectName)
         {
             case "task_cube_1":
-                return "cube";
+                label = "cube";
+                break;
             case "task_cylinder_1":
-                return "cylinder";
+                label = "cylinder";
+                break;
             case "task_sphere_1":
-                return "sphere";
+                label = "sphere";
+                break;
             case "receptacle_a":
-                return "cube pad";
+                label = "cube pad";
+                break;
             case "receptacle_b":
-                return "cylinder pad";
+                label = "cylinder pad";
+                break;
             case "receptacle_c":
-                return "sphere pad";
+                label = "sphere pad";
+                break;
+            case "task area":
+                label = "task area";
+                break;
             default:
-                return objectName.Replace("_", " ");
+                label = objectName.Replace("_", " ");
+                break;
         }
+
+        if (!capitalize || string.IsNullOrEmpty(label))
+        {
+            return label;
+        }
+
+        return char.ToUpperInvariant(label[0]) + label.Substring(1);
     }
 
     private static string StateLabel(ContextState state)
@@ -614,6 +1179,22 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             case ContextState.Idle:
             default:
                 return "Idle";
+        }
+    }
+
+    private static string StateMeaning(ContextState state)
+    {
+        switch (state)
+        {
+            case ContextState.Engaged:
+                return "focused on the current task";
+            case ContextState.Distracted:
+                return "attention has shifted away from the task";
+            case ContextState.Transitioning:
+                return "moving between task steps or targets";
+            case ContextState.Idle:
+            default:
+                return "paused with little task-directed activity";
         }
     }
 

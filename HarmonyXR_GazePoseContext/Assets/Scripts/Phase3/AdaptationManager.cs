@@ -1322,7 +1322,7 @@ public class AdaptationManager : MonoBehaviour
         GameObject titleGo = new GameObject("IdleActionsTitle");
         titleGo.transform.SetParent(persistentControlsRoot, false);
         TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
-        title.text = "Idle actions";
+        title.text = "Adaptive support";
         title.fontSize = 24f;
         title.fontStyle = FontStyles.Bold;
         title.color = new Color(0.94f, 0.96f, 1f, 1f);

@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using UnityEngine.XR;
 
 public class XRAppShellController : MonoBehaviour
@@ -41,6 +43,7 @@ public class XRAppShellController : MonoBehaviour
     private bool lastLeftPinch;
     private bool lastRightPinch;
     private float qaOverrideUntilTime;
+    private Canvas unsupportedDeviceCanvas;
 
     private void Start()
     {
@@ -49,6 +52,7 @@ public class XRAppShellController : MonoBehaviour
         EnsureTrainingSimulationUserGuide();
         StartCoroutine(AlignTrainingSimulationWhenReady());
         StartCoroutine(BindContextSourceWhenAvailable());
+        StartCoroutine(ShowUnsupportedAndroidDeviceNoticeIfNeeded());
     }
 
     private void OnDestroy()
@@ -570,6 +574,69 @@ public class XRAppShellController : MonoBehaviour
         AlignTransform("receptacle_c", taskAnchorPosition + yaw * new Vector3(0.5f, 0.82f, 0.35f), yaw, new Vector3(0.22f, 0.06f, 0.22f));
         AlignTransform("instruction_panel", taskAnchorPosition + yaw * new Vector3(0f, 1.30f, 0.80f), yaw * Quaternion.Euler(0f, 180f, 0f), new Vector3(0.9f, 0.45f, 1f), true);
         AlignTransform("UIAnchorRoot", head.position + flatForward * 1.5f, Quaternion.LookRotation(flatForward, Vector3.up), Vector3.one);
+    }
+
+    private IEnumerator ShowUnsupportedAndroidDeviceNoticeIfNeeded()
+    {
+        if (Application.platform != RuntimePlatform.Android)
+        {
+            yield break;
+        }
+
+        yield return new WaitForSeconds(4f);
+
+        if (XRSettings.isDeviceActive || !string.IsNullOrWhiteSpace(XRSettings.loadedDeviceName) || OVRManager.isHmdPresent)
+        {
+            yield break;
+        }
+
+        EnsureUnsupportedDeviceCanvas();
+    }
+
+    private void EnsureUnsupportedDeviceCanvas()
+    {
+        if (unsupportedDeviceCanvas != null)
+        {
+            unsupportedDeviceCanvas.gameObject.SetActive(true);
+            return;
+        }
+
+        GameObject canvasGo = new GameObject("UnsupportedXRDeviceNotice");
+        unsupportedDeviceCanvas = canvasGo.AddComponent<Canvas>();
+        unsupportedDeviceCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        unsupportedDeviceCanvas.sortingOrder = 500;
+        canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        GameObject panelGo = new GameObject("Panel");
+        panelGo.transform.SetParent(canvasGo.transform, false);
+        Image panel = panelGo.AddComponent<Image>();
+        panel.color = new Color(0.02f, 0.03f, 0.04f, 0.96f);
+
+        RectTransform panelRect = panel.rectTransform;
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+
+        GameObject textGo = new GameObject("Message");
+        textGo.transform.SetParent(panelGo.transform, false);
+        TextMeshProUGUI text = textGo.AddComponent<TextMeshProUGUI>();
+        text.text =
+            "Meta Quest headset required\n\n" +
+            "This APK is an XR proof-of-concept built for Quest headset runtime.\n\n" +
+            "If opened on a standard Android phone, the headset scene cannot start. Please launch the build on a supported Meta Quest device.";
+        text.fontSize = 38f;
+        text.fontStyle = FontStyles.Bold;
+        text.color = new Color(0.94f, 0.96f, 1f, 1f);
+        text.alignment = TextAlignmentOptions.Center;
+        text.enableWordWrapping = true;
+
+        RectTransform textRect = text.rectTransform;
+        textRect.anchorMin = new Vector2(0.12f, 0.18f);
+        textRect.anchorMax = new Vector2(0.88f, 0.82f);
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
     }
 
     private static void AlignTransform(string objectName, Vector3 position, Quaternion rotation, Vector3 scale, bool forceActive = false)

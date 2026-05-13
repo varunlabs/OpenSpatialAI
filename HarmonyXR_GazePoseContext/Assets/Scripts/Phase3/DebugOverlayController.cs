@@ -17,15 +17,16 @@ public class DebugOverlayController : MonoBehaviour
     [SerializeField] private Canvas worldSpaceCanvas;
     [SerializeField] private Transform taskAreaAnchor;
     [SerializeField] private float distanceFromHead = 1.6f;
-    [SerializeField] private float rightOffset = 0.72f;
-    [SerializeField] private float upOffset = 0.22f;
+    [SerializeField] private float rightOffset = -0.92f;
+    [SerializeField] private float upOffset = 0.30f;
     [SerializeField] private bool preferTaskAreaPlacement = true;
 
-    [Header("Toggle")]
-    [SerializeField] private float rightTriggerLongPressSeconds = 0.8f;
+    [Header("Developer Toggle")]
+    [SerializeField] private float rightTriggerLongPressSeconds = 1.5f;
 
     [Header("UI Fields")]
     [SerializeField] private TMP_Text contextStateText;
+    [SerializeField] private TMP_Text reasonText;
     [SerializeField] private Image confidenceFill;
     [SerializeField] private TMP_Text confidenceText;
     [SerializeField] private TMP_Text boundaryText;
@@ -181,16 +182,6 @@ public class DebugOverlayController : MonoBehaviour
             return triggerValue > 0.75f;
         }
 
-        if (handCapture == null)
-        {
-            handCapture = FindObjectOfType<HandCapture>(true);
-        }
-
-        if (handCapture != null)
-        {
-            return handCapture.right_pinch;
-        }
-
         return false;
     }
 
@@ -250,8 +241,13 @@ public class DebugOverlayController : MonoBehaviour
 
         if (contextStateText != null)
         {
-            contextStateText.text = "State: " + latestSnapshot.state;
+            contextStateText.text = "Research diagnostics: " + latestSnapshot.state + " - " + StateMeaning(latestSnapshot.state);
             contextStateText.color = StateColor(latestSnapshot.state);
+        }
+
+        if (reasonText != null)
+        {
+            reasonText.text = "Why: " + BuildStateReason();
         }
 
         if (confidenceFill != null)
@@ -278,11 +274,11 @@ public class DebugOverlayController : MonoBehaviour
         {
             if (lastFiveAois.Count == 0)
             {
-                lastFiveAoiText.text = "AOI (Last 5): -";
+                lastFiveAoiText.text = "Focus Areas (Last 5): -";
             }
             else
             {
-                lastFiveAoiText.text = "AOI (Last 5):\n- " + string.Join("\n- ", lastFiveAois);
+                lastFiveAoiText.text = "Focus Areas (Last 5):\n- " + string.Join("\n- ", lastFiveAois);
             }
         }
 
@@ -300,7 +296,7 @@ public class DebugOverlayController : MonoBehaviour
 
         if (interactionCountText != null)
         {
-            interactionCountText.text = "Interactions (10s): " + latestFrame.interaction_count_10s;
+            interactionCountText.text = "Interaction Events (10s): " + latestFrame.interaction_count_10s;
         }
 
         RefreshTimelineUi();
@@ -425,45 +421,62 @@ public class DebugOverlayController : MonoBehaviour
             canvasGo.AddComponent<GraphicRaycaster>();
 
             RectTransform canvasRt = worldSpaceCanvas.GetComponent<RectTransform>();
-            canvasRt.sizeDelta = new Vector2(650f, 430f);
+            canvasRt.sizeDelta = new Vector2(650f, 500f);
             canvasRt.localScale = Vector3.one * 0.00105f;
         }
 
         Transform root = worldSpaceCanvas.transform;
-        RectTransform panel = EnsureUiImage("Panel", root, new Vector2(650f, 430f), new Color(0.02f, 0.025f, 0.03f, 0.94f));
+        RectTransform panel = EnsureUiImage("Panel", root, new Vector2(650f, 500f), new Color(0.02f, 0.025f, 0.03f, 0.94f));
         panel.anchoredPosition = Vector2.zero;
         Transform panelRoot = panel.transform;
 
         float y = -28f;
         contextStateText = EnsureField(contextStateText, "State", panelRoot, ref y);
+        reasonText = EnsureField(reasonText, "Reason", panelRoot, ref y, 56f);
         confidenceText = EnsureField(confidenceText, "Confidence", panelRoot, ref y);
         boundaryText = EnsureField(boundaryText, "Boundary", panelRoot, ref y);
         postureModeText = EnsureField(postureModeText, "Posture", panelRoot, ref y);
         fixationDurationText = EnsureField(fixationDurationText, "Fixation", panelRoot, ref y);
         bodyPostureClassText = EnsureField(bodyPostureClassText, "Posture Class", panelRoot, ref y);
-        interactionCountText = EnsureField(interactionCountText, "Interactions", panelRoot, ref y);
-        lastFiveAoiText = EnsureField(lastFiveAoiText, "Last AOIs", panelRoot, ref y, 120f);
+        interactionCountText = EnsureField(interactionCountText, "Interaction Events", panelRoot, ref y);
+        lastFiveAoiText = EnsureField(lastFiveAoiText, "Recent Focus Areas", panelRoot, ref y, 120f);
 
-        if (confidenceFill == null)
+        RectTransform confidenceBarBg = EnsureUiImage("ConfidenceBarBg", panelRoot, new Vector2(180f, 8f), new Color(0.10f, 0.12f, 0.15f, 0.95f));
+        confidenceBarBg.anchoredPosition = new Vector2(394f, -146f);
+
+        Image previousConfidenceFill = confidenceFill;
+        if (confidenceFill == null || confidenceFill.transform.parent != confidenceBarBg)
         {
-            RectTransform bg = EnsureUiImage("ConfidenceBarBg", panelRoot, new Vector2(210f, 12f), new Color(0.2f, 0.2f, 0.2f, 0.9f));
-            bg.anchoredPosition = new Vector2(170f, -60f);
+            if (previousConfidenceFill != null && previousConfidenceFill.transform.parent != confidenceBarBg)
+            {
+                previousConfidenceFill.gameObject.SetActive(false);
+            }
 
-            GameObject fillGo = new GameObject("ConfidenceBarFill");
-            fillGo.transform.SetParent(bg, false);
-            Image fill = fillGo.AddComponent<Image>();
-            fill.color = new Color(0.18f, 0.72f, 0.92f, 1f);
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillOrigin = 0;
+            Transform existingFill = confidenceBarBg.Find("ConfidenceBarFill");
+            confidenceFill = existingFill != null ? existingFill.GetComponent<Image>() : null;
 
-            RectTransform fillRt = fill.rectTransform;
-            fillRt.anchorMin = Vector2.zero;
-            fillRt.anchorMax = Vector2.one;
-            fillRt.offsetMin = Vector2.zero;
-            fillRt.offsetMax = Vector2.zero;
-            confidenceFill = fill;
+            if (confidenceFill == null)
+            {
+                GameObject fillGo = new GameObject("ConfidenceBarFill");
+                fillGo.transform.SetParent(confidenceBarBg, false);
+                confidenceFill = fillGo.AddComponent<Image>();
+            }
+            else if (confidenceFill.transform.parent != confidenceBarBg)
+            {
+                confidenceFill.transform.SetParent(confidenceBarBg, false);
+            }
         }
+
+        confidenceFill.color = new Color(0.25f, 0.62f, 0.68f, 0.86f);
+        confidenceFill.type = Image.Type.Filled;
+        confidenceFill.fillMethod = Image.FillMethod.Horizontal;
+        confidenceFill.fillOrigin = 0;
+
+        RectTransform fillRt = confidenceFill.rectTransform;
+        fillRt.anchorMin = Vector2.zero;
+        fillRt.anchorMax = Vector2.one;
+        fillRt.offsetMin = Vector2.zero;
+        fillRt.offsetMax = Vector2.zero;
 
         if (timelineSegmentContainer == null)
         {
@@ -471,7 +484,7 @@ public class DebugOverlayController : MonoBehaviour
             timelineRoot.transform.SetParent(panelRoot, false);
             RectTransform rt = timelineRoot.AddComponent<RectTransform>();
             rt.sizeDelta = new Vector2(520f, 24f);
-            rt.anchoredPosition = new Vector2(0f, -198f);
+            rt.anchoredPosition = new Vector2(0f, -232f);
             timelineSegmentContainer = rt;
 
             HorizontalLayoutGroup h = timelineRoot.AddComponent<HorizontalLayoutGroup>();
@@ -506,11 +519,11 @@ public class DebugOverlayController : MonoBehaviour
         worldSpaceCanvas.worldCamera = Camera.main;
 
         distanceFromHead = 1.6f;
-        rightOffset = 0.72f;
-        upOffset = 0.22f;
+        rightOffset = -0.92f;
+        upOffset = 0.30f;
 
         RectTransform canvasRt = worldSpaceCanvas.GetComponent<RectTransform>();
-        canvasRt.sizeDelta = new Vector2(650f, 430f);
+        canvasRt.sizeDelta = new Vector2(650f, 500f);
         canvasRt.localScale = Vector3.one * 0.00105f;
         canvasRt.localPosition = new Vector3(0f, 0f, 1.1f);
         canvasRt.localRotation = Quaternion.identity;
@@ -521,7 +534,7 @@ public class DebugOverlayController : MonoBehaviour
             panel.anchorMin = new Vector2(0.5f, 0.5f);
             panel.anchorMax = new Vector2(0.5f, 0.5f);
             panel.pivot = new Vector2(0.5f, 0.5f);
-            panel.sizeDelta = new Vector2(650f, 430f);
+            panel.sizeDelta = new Vector2(650f, 500f);
             panel.anchoredPosition = Vector2.zero;
             panel.localRotation = Quaternion.identity;
             panel.localScale = Vector3.one;
@@ -529,6 +542,7 @@ public class DebugOverlayController : MonoBehaviour
         }
 
         ReparentToOverlayPanel(contextStateText);
+        ReparentToOverlayPanel(reasonText);
         ReparentToOverlayPanel(confidenceText);
         ReparentToOverlayPanel(boundaryText);
         ReparentToOverlayPanel(postureModeText);
@@ -538,13 +552,14 @@ public class DebugOverlayController : MonoBehaviour
         ReparentToOverlayPanel(interactionCountText);
 
         LayoutField(contextStateText, new Vector2(590f, 40f), new Vector2(28f, -26f), 28f, TextAlignmentOptions.TopLeft, true);
-        LayoutField(confidenceText, new Vector2(310f, 28f), new Vector2(28f, -76f), 20f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(boundaryText, new Vector2(310f, 28f), new Vector2(28f, -108f), 20f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(postureModeText, new Vector2(310f, 28f), new Vector2(28f, -140f), 20f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(lastFiveAoiText, new Vector2(590f, 112f), new Vector2(28f, -176f), 18f, TextAlignmentOptions.TopLeft, true);
-        LayoutField(fixationDurationText, new Vector2(310f, 28f), new Vector2(28f, -300f), 20f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(bodyPostureClassText, new Vector2(310f, 28f), new Vector2(28f, -332f), 20f, TextAlignmentOptions.TopLeft, false);
-        LayoutField(interactionCountText, new Vector2(310f, 28f), new Vector2(28f, -364f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(reasonText, new Vector2(590f, 54f), new Vector2(28f, -72f), 18f, TextAlignmentOptions.TopLeft, true);
+        LayoutField(confidenceText, new Vector2(310f, 28f), new Vector2(28f, -132f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(boundaryText, new Vector2(310f, 28f), new Vector2(28f, -164f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(postureModeText, new Vector2(310f, 28f), new Vector2(28f, -196f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(lastFiveAoiText, new Vector2(590f, 112f), new Vector2(28f, -232f), 18f, TextAlignmentOptions.TopLeft, true);
+        LayoutField(fixationDurationText, new Vector2(310f, 28f), new Vector2(28f, -356f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(bodyPostureClassText, new Vector2(310f, 28f), new Vector2(28f, -388f), 20f, TextAlignmentOptions.TopLeft, false);
+        LayoutField(interactionCountText, new Vector2(310f, 28f), new Vector2(28f, -420f), 20f, TextAlignmentOptions.TopLeft, false);
 
         if (confidenceFill != null)
         {
@@ -555,8 +570,8 @@ public class DebugOverlayController : MonoBehaviour
                 confidenceRect.anchorMin = new Vector2(0f, 1f);
                 confidenceRect.anchorMax = new Vector2(0f, 1f);
                 confidenceRect.pivot = new Vector2(0f, 1f);
-                confidenceRect.sizeDelta = new Vector2(210f, 12f);
-                confidenceRect.anchoredPosition = new Vector2(380f, -82f);
+                confidenceRect.sizeDelta = new Vector2(180f, 8f);
+                confidenceRect.anchoredPosition = new Vector2(394f, -146f);
             }
         }
 
@@ -567,7 +582,123 @@ public class DebugOverlayController : MonoBehaviour
             timelineSegmentContainer.anchorMax = new Vector2(0f, 1f);
             timelineSegmentContainer.pivot = new Vector2(0f, 1f);
             timelineSegmentContainer.sizeDelta = new Vector2(590f, 16f);
-            timelineSegmentContainer.anchoredPosition = new Vector2(28f, -398f);
+            timelineSegmentContainer.anchoredPosition = new Vector2(28f, -460f);
+        }
+    }
+
+    private string BuildStateReason()
+    {
+        string aoi = string.IsNullOrWhiteSpace(latestSnapshot.aoiHit) || latestSnapshot.aoiHit == "none"
+            ? latestFrame.aoi_hit
+            : latestSnapshot.aoiHit;
+        if (string.IsNullOrWhiteSpace(aoi) || aoi == "none")
+        {
+            aoi = "task area";
+        }
+
+        bool onTaskAoi = IsTaskRelevantAoi(aoi);
+        bool pinching = latestFrame.left_pinch || latestFrame.right_pinch || (handCapture != null && (handCapture.left_pinch || handCapture.right_pinch));
+        int interactions = Mathf.Max(0, latestFrame.interaction_count_10s);
+        float fixation = Mathf.Max(0f, latestFrame.fixation_duration_s);
+        float bodyVelocity = Mathf.Max(0f, latestFrame.avg_joint_velocity);
+        string posture = string.IsNullOrWhiteSpace(latestFrame.posture_class) ? "unknown" : latestFrame.posture_class.ToLowerInvariant();
+
+        switch (latestSnapshot.state)
+        {
+            case ContextState.Engaged:
+                if (onTaskAoi && (pinching || interactions > 0))
+                {
+                    return "gaze is on " + FriendlyAoi(aoi) + " and hand interaction is active";
+                }
+
+                if (onTaskAoi && fixation >= 0.2f)
+                {
+                    return "gaze has stayed on the task area long enough to suggest stable focus";
+                }
+
+                return "task-relevant gaze is more stable than distractive scanning";
+
+            case ContextState.Distracted:
+                if (!onTaskAoi && bodyVelocity >= 0.03f)
+                {
+                    return "attention moved away from the task area while body movement increased";
+                }
+
+                if (!onTaskAoi)
+                {
+                    return "gaze is off the task objects and recent task interaction is low";
+                }
+
+                return "task focus appears unstable and attention is drifting away";
+
+            case ContextState.Transitioning:
+                if (pinching)
+                {
+                    return "hand activity suggests the user is moving between task steps";
+                }
+
+                if (bodyVelocity >= 0.03f || posture == "leaning" || posture == "reaching")
+                {
+                    return "body posture and movement suggest repositioning between targets";
+                }
+
+                return "gaze and posture indicate a shift between task targets";
+
+            case ContextState.Idle:
+            default:
+                if (!pinching && interactions == 0 && bodyVelocity < 0.05f)
+                {
+                    return "there is little hand activity or body movement near the task";
+                }
+
+                return "task-directed activity has paused long enough to be treated as idle";
+        }
+    }
+
+    private static bool IsTaskRelevantAoi(string aoi)
+    {
+        return aoi == "task_cube_1" ||
+               aoi == "task_cylinder_1" ||
+               aoi == "task_sphere_1" ||
+               aoi == "receptacle_a" ||
+               aoi == "receptacle_b" ||
+               aoi == "receptacle_c";
+    }
+
+    private static string FriendlyAoi(string aoi)
+    {
+        switch (aoi)
+        {
+            case "task_cube_1":
+                return "cube";
+            case "task_cylinder_1":
+                return "cylinder";
+            case "task_sphere_1":
+                return "sphere";
+            case "receptacle_a":
+                return "cube pad";
+            case "receptacle_b":
+                return "cylinder pad";
+            case "receptacle_c":
+                return "sphere pad";
+            default:
+                return aoi.Replace("_", " ");
+        }
+    }
+
+    private static string StateMeaning(ContextState state)
+    {
+        switch (state)
+        {
+            case ContextState.Engaged:
+                return "focused on the current task";
+            case ContextState.Distracted:
+                return "attention has shifted away from the task";
+            case ContextState.Transitioning:
+                return "moving between task steps or targets";
+            case ContextState.Idle:
+            default:
+                return "paused with little task-directed activity";
         }
     }
 
