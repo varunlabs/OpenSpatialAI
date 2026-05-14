@@ -72,22 +72,15 @@ public class HandCapture : MonoBehaviour
     {
         if (hand == null)
         {
-            Debug.Log(handLabel + " Hand Tracked: false");
-            Debug.Log(handLabel + " Hand HighConfidence: false");
-            Debug.Log(handLabel + " Pinch Strength: 0");
             return false;
         }
-
-        Debug.Log(handLabel + " Hand Tracked: " + hand.IsTracked);
-        Debug.Log(handLabel + " Hand HighConfidence: " + hand.IsDataHighConfidence);
 
         if (!hand.IsTracked)
         {
             return false;
         }
 
-        float strength = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
-        Debug.Log(handLabel + " Pinch Strength: " + strength);
+        float strength = GetPinchStrength(hand);
 
         if (!IsFinite(strength))
         {
@@ -95,11 +88,6 @@ public class HandCapture : MonoBehaviour
         }
 
         bool pinch = strength >= pinchThreshold;
-        if (pinch)
-        {
-            Debug.Log("PINCH DETECTED");
-        }
-
         return pinch;
     }
 
@@ -244,6 +232,14 @@ public class HandCapture : MonoBehaviour
         }
 
         Debug.Log(
+            "Left Hand Tracked: " + IsTracked(leftHand) +
+            " | Left Hand HighConfidence: " + IsHighConfidence(leftHand) +
+            " | Left Pinch Strength: " + GetPinchStrength(leftHand).ToString("F3"));
+        Debug.Log(
+            "Right Hand Tracked: " + IsTracked(rightHand) +
+            " | Right Hand HighConfidence: " + IsHighConfidence(rightHand) +
+            " | Right Pinch Strength: " + GetPinchStrength(rightHand).ToString("F3"));
+        Debug.Log(
             "Left Pinch: " + left_pinch +
             " | Right Pinch: " + right_pinch +
             " | Interaction Count (10s): " + interaction_count_10s +
@@ -269,6 +265,27 @@ public class HandCapture : MonoBehaviour
     private static bool IsFinite(float value)
     {
         return !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+
+    private static bool IsTracked(OVRHand hand)
+    {
+        return hand != null && hand.IsTracked;
+    }
+
+    private static bool IsHighConfidence(OVRHand hand)
+    {
+        return hand != null && hand.IsDataHighConfidence;
+    }
+
+    private static float GetPinchStrength(OVRHand hand)
+    {
+        if (hand == null || !hand.IsTracked)
+        {
+            return 0f;
+        }
+
+        float strength = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
+        return IsFinite(strength) ? strength : 0f;
     }
 
     private static bool IsFinite(Vector3 v)

@@ -1,0 +1,2 @@
+﻿"Run","StartTime","EndTime","MetricSamples","CrashObserved","TrackingDropoutObserved","LogDropoutObserved","LatencyUnder200ms","Notes"
+"Run 01 console evidence","05-14 16:16:46.104","05-14 16:22:02.470","169","No crash indicated in captured evidence","No explicit dropout identified from QA_METRICS review","QA_METRICS emitted during the captured run","Hardware QA gate reported separately as passed","Use raw console log as backup and filtered evidence for paper tables."

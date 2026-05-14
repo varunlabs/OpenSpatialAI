@@ -1,0 +1,5 @@
+﻿"State","FoundInConsole","Count","FirstTimestamp","LastTimestamp","EvidenceFile","Notes"
+"Engaged","Yes","15","05-14 16:19:18.956","05-14 16:21:33.401","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Observed in QA_METRICS runtime console evidence."
+"Distracted","Yes","30","05-14 16:16:46.104","05-14 16:21:55.453","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Observed in QA_METRICS runtime console evidence."
+"Transitioning","Yes","100","05-14 16:19:28.044","05-14 16:21:48.434","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Observed in QA_METRICS runtime console evidence."
+"Idle","Yes","24","05-14 16:16:49.126","05-14 16:22:02.470","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Observed in QA_METRICS runtime console evidence."

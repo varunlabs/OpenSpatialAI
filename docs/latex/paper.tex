@@ -54,16 +54,22 @@ The contributions of this work are:
 \end{enumerate}
 
 \section{Related Work}
-The earlier draft files available locally did not preserve a full machine-readable bibliography. As a result, this LaTeX version restores only the citations that can be verified directly from the surviving reference notes and current implementation. The remaining related-work entries should be inserted from Lavanya's original literature survey once the source list is available.
+The current paper is positioned at the intersection of XR sensing, multimodal interaction, context-aware adaptation, and immersive training support. The reference list provided for this paper shows four especially relevant lines of work: eye tracking and attention measurement in XR, multimodal interaction pipelines, body and hand tracking for embodied interaction, and context-aware adaptation in immersive systems.
 
 \subsection{Gaze and Attention Modeling}
-The current implementation uses an Identification by Velocity Threshold (I-VT) style fixation detector with a 30 degrees/second velocity threshold and an 80 ms minimum fixation duration. These values align with a standard fixation-identification approach in eye-tracking literature \cite{salvucci2000}. The use of dwell ratio and saccade rate as secondary features follows the same general logic of aggregating gaze dynamics into interpretable behavioral features.
+Eye tracking has become one of the most important sensing channels in XR because it provides a direct proxy for user attention, fixation stability, and target selection. Moreno-Arjonilla et al. survey the broader state of eye tracking in virtual reality and help position gaze sensing as a mature but still evolving foundation for adaptive immersive systems \cite{moreno2024}. Work comparing gaze accuracy and precision between real-world and VR conditions is also relevant because the present system depends on AOI-level reliability rather than only coarse orientation cues \cite{gazecomparison2020}. At the feature-extraction level, the current implementation uses an Identification by Velocity Threshold (I-VT) style fixation detector with a 30 degrees/second velocity threshold and an 80 ms minimum fixation duration, following a standard fixation-identification approach in eye-tracking literature \cite{salvucci2000}. The use of dwell ratio and saccade rate as secondary features follows the same general logic of aggregating gaze dynamics into interpretable behavioral features.
+
+Attention modeling in XR is also increasingly multimodal. Long et al. combine EEG and eye tracking for detecting internal and external attention in virtual reality, showing the broader research trend toward richer attention inference beyond gaze alone \cite{long2024}. In a more intervention-oriented direction, Selaskowski et al. demonstrate that gaze-based attention refocusing in VR can be used as part of adaptive training and therapeutic support, which is directly relevant to the adaptive redirection logic in the present work \cite{selaskowski2023}.
 
 \subsection{Workload and User Evaluation}
+Multimodal interaction in XR has expanded well beyond controller-only paradigms. Rakkolainen et al. provide a scoping review of technologies for multimodal interaction in extended reality, which supports the design decision to combine gaze, hand, body, and head channels in a single system rather than treating them separately \cite{rakkolainen2021}. Kim et al. similarly frame XR interaction as an evolution from controllers toward broader multimodal input ecosystems, reinforcing the relevance of layered sensing and fusion architectures \cite{kim2026}. On the adaptation side, Davari and Bowman explicitly address context-aware adaptation in extended reality, making their work one of the closest conceptual neighbors to the present system \cite{davari2024}. Ramiotis and Mania's CONTEXT-GAD work is especially relevant because it links gaze-aware adaptation with context-sensitive dwell modeling in immersive interaction \cite{ramiotis2025}.
+
+The embodied components of the present pipeline are also supported by recent work on posture and hand tracking. Bustamante et al. show the value of skeleton-based posture recognition for applied settings \cite{bustamante2025}, while Neidhardt et al. demonstrate the use of VR-based body tracking for musculoskeletal training applications \cite{neidhardt2023}. For the hand-interaction channel, Lei et al. present a sensor-fusion approach for precise hand tracking in VR \cite{lei2023}. Together, these works support the inclusion of posture, joint movement, and hand interaction features in the current system.
+
 The evaluation plan uses NASA-TLX as a secondary measure of subjective workload, which is standard for human factors and interactive systems evaluation \cite{hart1988}. In the planned study, NASA-TLX is intended to complement behavioral metrics such as context detection accuracy, task completion time, and sorting errors.
 
 \subsection{Pending Reference Integration}
-The earlier draft clearly intended a larger related-work section covering adaptive XR systems, multimodal context inference, and training-oriented immersive interfaces. Those additional references were not recoverable in full from the local draft assets. This paper therefore keeps the related-work framing compact and implementation-grounded for now, and should be expanded once the original reference list is restored.
+The current reference set now supports the core framing of the paper: gaze sensing in VR \cite{moreno2024,gazecomparison2020}, multimodal attention and interaction \cite{long2024,rakkolainen2021,kim2026}, embodied posture and hand tracking \cite{bustamante2025,neidhardt2023,lei2023}, and context-aware adaptation in XR \cite{davari2024,ramiotis2025}. As the paper is further refined, these references should be verified and formatted against the target venue's bibliography style.
 
 \section{Problem Statement and Research Questions}
 The core problem addressed in this paper is how to infer task-relevant user context in real time during immersive interaction and use that inference to adapt XR behavior without requiring manual status input from the user.
@@ -263,6 +269,55 @@ GazePose-Context presents a structured XR prototype for multimodal context infer
 This research used AI-assisted tools in the following capacities: Claude for paper drafting assistance and research synthesis; GitHub Copilot for Unity C\# code scaffolding, with all generated code tested and validated on hardware by the researchers; literature-discovery tools for reference discovery; transcription tools for interview transcription if applicable; and charting tools for results figure generation. All scientific claims, research contribution statements, experimental results, and final citations were produced and verified by the human authors.
 
 \begin{thebibliography}{9}
+
+\bibitem{moreno2024}
+Moreno-Arjonilla et al.,
+``Eye-tracking on Virtual Reality: A Survey,''
+\textit{Virtual Reality}, 2024.
+
+\bibitem{long2024}
+Long et al.,
+``Multimodal Detection of External and Internal Attention in Virtual Reality using EEG and Eye Tracking,''
+\textit{MuC}, 2024.
+
+\bibitem{gazecomparison2020}
+``Comparison of Gaze Accuracy and Precision in Real-World and Virtual Reality,''
+\textit{Virtual Reality Journal}, 2020.
+
+\bibitem{rakkolainen2021}
+J. Rakkolainen et al.,
+``Technologies for Multimodal Interaction in Extended Reality---A Scoping Review,''
+\textit{Multimodal Technologies and Interaction}, 2021.
+
+\bibitem{bustamante2025}
+Bustamante et al.,
+``Skeleton-Based Posture Recognition for Home Care,''
+\textit{Expert Systems}, 2025.
+
+\bibitem{neidhardt2023}
+Neidhardt et al.,
+``VR-based Body Tracking to Stimulate Musculoskeletal Training,''
+\textit{arXiv}, 2023.
+
+\bibitem{davari2024}
+Davari and Bowman,
+``Towards Context-Aware Adaptation in Extended Reality,''
+\textit{arXiv}, 2024.
+
+\bibitem{kim2026}
+Kim et al.,
+``From Controllers to Multimodal Input: XR Interaction Evolution,''
+\textit{Sensors}, 2026.
+
+\bibitem{ramiotis2025}
+Ramiotis and Mania,
+``CONTEXT-GAD: Context-Aware Gaze Adaptive Dwell Model,''
+\textit{VRST}, 2025.
+
+\bibitem{lei2023}
+Lei et al.,
+``A Novel Sensor Fusion Approach for Precise Hand Tracking in VR,''
+\textit{Biomimetics}, 2023.
 
 \bibitem{salvucci2000}
 D. D. Salvucci and J. H. Goldberg,

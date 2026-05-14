@@ -459,6 +459,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   qaMode: 0
   appShell: {fileID: 145958545}
+  handCapture: {fileID: 0}
+  bothHandPinchQaToggleSeconds: 8
+  logQaMetricsToConsole: 1
+  qaMetricConsoleLogIntervalSeconds: 1
   engagedMinVisibleSeconds: 1
   distractedMinVisibleSeconds: 2.25
   transitioningMinVisibleSeconds: 1.75

@@ -12,6 +12,12 @@ public class AdaptationManager : MonoBehaviour
 
     [Header("Context Source")]
     [SerializeField] private XRAppShellController appShell;
+    [SerializeField] private HandCapture handCapture;
+
+    [Header("QA Evidence Toggle")]
+    [SerializeField] private float bothHandPinchQaToggleSeconds = 8f;
+    [SerializeField] private bool logQaMetricsToConsole = true;
+    [SerializeField] private float qaMetricConsoleLogIntervalSeconds = 1f;
 
     [Header("State Stability")]
     [SerializeField] private float engagedMinVisibleSeconds = 1.0f;
@@ -77,6 +83,9 @@ public class AdaptationManager : MonoBehaviour
     private bool hasAppliedSnapshot;
     private bool idleChoicePanelLocked;
     private bool restBreakActive;
+    private bool qaToggleGestureConsumed;
+    private float qaToggleHoldStartedAt = -1f;
+    private float nextQaMetricConsoleLogAt;
     private XRContextSnapshot queuedSnapshot;
 
     private void Start()
@@ -89,6 +98,11 @@ public class AdaptationManager : MonoBehaviour
         if (userGuide == null)
         {
             userGuide = FindObjectOfType<TrainingSimulationUserGuide>(true);
+        }
+
+        if (handCapture == null)
+        {
+            handCapture = FindObjectOfType<HandCapture>(true);
         }
 
         // If app shell is production-mode, force user-facing UI behavior.
@@ -149,9 +163,11 @@ public class AdaptationManager : MonoBehaviour
 
     private void Update()
     {
+        UpdateQaEvidenceToggleGesture();
         RefreshComfortUiPlacement();
         KeepPersistentControlsVisible();
         HideLegacyPanelsWhenPersistentHeadsetUiIsUsed();
+        UpdateQaMetricConsoleLog();
         if (qaMode)
         {
             UpdatePersistentStatsPanel();
@@ -160,6 +176,91 @@ public class AdaptationManager : MonoBehaviour
         {
             HidePersistentStatsPanel();
         }
+    }
+
+    private void UpdateQaEvidenceToggleGesture()
+    {
+        if (handCapture == null)
+        {
+            handCapture = FindObjectOfType<HandCapture>(true);
+        }
+
+        bool leftPinch = handCapture != null ? handCapture.left_pinch : latestFrame.left_pinch;
+        bool rightPinch = handCapture != null ? handCapture.right_pinch : latestFrame.right_pinch;
+        bool bothHandsPinching = leftPinch && rightPinch;
+
+        if (!bothHandsPinching)
+        {
+            qaToggleHoldStartedAt = -1f;
+            qaToggleGestureConsumed = false;
+            return;
+        }
+
+        if (qaToggleHoldStartedAt < 0f)
+        {
+            qaToggleHoldStartedAt = Time.time;
+            return;
+        }
+
+        if (qaToggleGestureConsumed || Time.time - qaToggleHoldStartedAt < bothHandPinchQaToggleSeconds)
+        {
+            return;
+        }
+
+        qaMode = !qaMode;
+        qaToggleGestureConsumed = true;
+
+        if (qaMode)
+        {
+            EnsurePersistentStatsPanel();
+            UpdatePersistentStatsPanel();
+        }
+        else
+        {
+            HidePersistentStatsPanel();
+        }
+
+        Debug.Log("[Phase3] QA evidence panel " + (qaMode ? "enabled" : "disabled") + " by both-hand pinch hold.");
+    }
+
+    private void UpdateQaMetricConsoleLog()
+    {
+        if (!logQaMetricsToConsole || Time.time < nextQaMetricConsoleLogAt)
+        {
+            return;
+        }
+
+        nextQaMetricConsoleLogAt = Time.time + Mathf.Max(0.25f, qaMetricConsoleLogIntervalSeconds);
+
+        ResolveContextSource();
+        if (contextSource != null)
+        {
+            latestFrame = contextSource.LatestFrame;
+        }
+
+        string aoi = string.IsNullOrWhiteSpace(latestSnapshot.aoiHit) ? latestFrame.aoi_hit : latestSnapshot.aoiHit;
+        if (string.IsNullOrWhiteSpace(aoi))
+        {
+            aoi = "none";
+        }
+
+        GazeFeatureVector gaze = GetLatestGazeFeatures();
+        string posture = string.IsNullOrWhiteSpace(latestFrame.posture_class) ? latestSnapshot.postureMode.ToString() : latestFrame.posture_class;
+
+        Debug.Log(
+            "[QA_METRICS] " +
+            "STATE=" + latestSnapshot.state +
+            " | CONF=" + (latestSnapshot.confidence * 100f).ToString("F0") + "%" +
+            " | BOUND=" + latestSnapshot.boundaryType +
+            " | AOI=" + aoi +
+            " | POSTURE=" + posture +
+            " | FIX=" + latestFrame.fixation_duration_s.ToString("F2") + "s" +
+            " | DWELL=" + gaze.aoi_dwell_ratio.ToString("F2") +
+            " | SACC=" + gaze.saccade_rate_per_s.ToString("F2") + "/s" +
+            " | BODY=" + latestFrame.avg_joint_velocity.ToString("F2") +
+            " | HAND=" + latestFrame.interaction_count_10s +
+            " | PINCH=" + latestFrame.left_pinch + "/" + latestFrame.right_pinch +
+            " | DIST=" + latestFrame.nearest_object_dist_m.ToString("F2") + "m");
     }
 
     public void OnContinuePressed()

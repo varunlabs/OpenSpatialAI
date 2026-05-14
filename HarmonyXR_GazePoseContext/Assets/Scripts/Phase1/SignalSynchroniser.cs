@@ -103,6 +103,11 @@ public class SignalSynchroniser : MonoBehaviour
             lastSpatialFreshTimestampMs = nowMs;
         }
 
+        if (IsUnknownPosture(frame.posture_class) && !IsUnknownPosture(frame.posture_mode))
+        {
+            frame.posture_class = frame.posture_mode;
+        }
+
         frame.gaze_stale = IsSignalStale(lastGazeFreshTimestampMs, nowMs);
         frame.body_stale = IsSignalStale(lastBodyFreshTimestampMs, nowMs);
         frame.hand_stale = IsSignalStale(lastHandFreshTimestampMs, nowMs);
@@ -209,6 +214,11 @@ public class SignalSynchroniser : MonoBehaviour
     private static bool IsSourceAvailable(Behaviour source)
     {
         return source != null && source.isActiveAndEnabled && source.gameObject.activeInHierarchy;
+    }
+
+    private static bool IsUnknownPosture(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) || value.Equals("unknown", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool IsSignalStale(long lastFreshTimestampMs, long nowMs)

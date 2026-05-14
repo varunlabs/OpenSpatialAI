@@ -43,6 +43,7 @@ public class BodyPoseCapture : MonoBehaviour
 
     private void Awake()
     {
+        ResolveReferencesIfNeeded();
         ResetOutputs();
     }
 
@@ -55,6 +56,7 @@ public class BodyPoseCapture : MonoBehaviour
 
     private void Update()
     {
+        ResolveReferencesIfNeeded();
         UpdateHeadPose();
 
         bool hasBodyData = UpdateBodyTracking();
@@ -181,6 +183,9 @@ public class BodyPoseCapture : MonoBehaviour
             return;
         }
 
+        Debug.Log(
+            "Body Skeleton Bound: " + (bodySkeleton != null) +
+            " | Data Valid: " + (bodySkeleton != null && bodySkeleton.IsDataValid));
         Debug.Log("Head Forward: " + head_forward);
         Debug.Log("Spine Angle: " + spine_angle_deg);
         Debug.Log("Posture: " + posture_class);
@@ -279,6 +284,60 @@ public class BodyPoseCapture : MonoBehaviour
         }
 
         return sumVelocity / velocityCount;
+    }
+
+    private void ResolveReferencesIfNeeded()
+    {
+        if (ovrCameraRig == null)
+        {
+            ovrCameraRig = FindObjectOfType<OVRCameraRig>(true);
+        }
+
+        if (bodySkeleton != null)
+        {
+            return;
+        }
+
+        OVRSkeleton[] skeletons = FindObjectsOfType<OVRSkeleton>(true);
+        for (int i = 0; i < skeletons.Length; i++)
+        {
+            OVRSkeleton skeleton = skeletons[i];
+            if (IsBodySkeletonCandidate(skeleton))
+            {
+                bodySkeleton = skeleton;
+                return;
+            }
+        }
+    }
+
+    private static bool IsBodySkeletonCandidate(OVRSkeleton skeleton)
+    {
+        if (skeleton == null)
+        {
+            return false;
+        }
+
+        string objectName = skeleton.gameObject.name.ToLowerInvariant();
+        if (objectName.Contains("body") || objectName.Contains("fullbody"))
+        {
+            return true;
+        }
+
+        if (skeleton.Bones == null || skeleton.Bones.Count == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < skeleton.Bones.Count; i++)
+        {
+            OVRBone bone = skeleton.Bones[i];
+            if (bone != null && IsRequiredJoint(bone.Id))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsRequiredJoint(OVRSkeleton.BoneId id)

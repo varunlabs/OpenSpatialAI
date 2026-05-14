@@ -1,0 +1,5 @@
+﻿"TriggerState","AdaptiveResponse","ConsoleEvidence","EvidenceFile","Passed","Notes"
+"Engaged","Normal task support / focused task guidance","STATE=Engaged in QA_METRICS","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Yes","Engaged state observed during task-relevant AOI focus."
+"Distracted","Refocus / attention support behavior","STATE=Distracted in QA_METRICS","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Yes","Distracted state observed with reduced/off-task AOI evidence."
+"Transitioning","Transition support during movement between targets","STATE=Transitioning in QA_METRICS","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Yes","Transitioning state observed during task movement/interactions."
+"Idle","Idle support / pause handling","STATE=Idle in QA_METRICS","05_Stability_Latency/20260514_run01_filtered-evidence.txt","Yes","Idle state observed during low activity periods."
