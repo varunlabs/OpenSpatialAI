@@ -1,6 +1,6 @@
 ---
 title: "HarmonyXR GazePose-Context: Multimodal Context Inference for Adaptive XR Training"
-author: "Lavanya D."
+author: "Varun Siddarju, Lavanya D."
 date: "May 14, 2026"
 geometry: margin=0.8in
 fontsize: 10pt
