@@ -1,0 +1,5 @@
+D:/Lavanya_VeeRuby/Research Project/OpenSpatialAI/HarmonyXR_GazePoseContext/.utmp/Debug/3b5x213q/arm64-v8a/CMakeFiles/edit_cache.dir
+D:/Lavanya_VeeRuby/Research Project/OpenSpatialAI/HarmonyXR_GazePoseContext/.utmp/Debug/3b5x213q/arm64-v8a/CMakeFiles/rebuild_cache.dir
+D:/Lavanya_VeeRuby/Research Project/OpenSpatialAI/HarmonyXR_GazePoseContext/.utmp/Debug/3b5x213q/arm64-v8a/GameActivity/CMakeFiles/game.dir
+D:/Lavanya_VeeRuby/Research Project/OpenSpatialAI/HarmonyXR_GazePoseContext/.utmp/Debug/3b5x213q/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+D:/Lavanya_VeeRuby/Research Project/OpenSpatialAI/HarmonyXR_GazePoseContext/.utmp/Debug/3b5x213q/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir

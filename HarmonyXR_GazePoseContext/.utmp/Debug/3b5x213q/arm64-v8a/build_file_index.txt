@@ -1,0 +1,2 @@
+D:\Lavanya_VeeRuby\Research Project\OpenSpatialAI\HarmonyXR_GazePoseContext\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
+D:\Lavanya_VeeRuby\Research Project\OpenSpatialAI\HarmonyXR_GazePoseContext\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt
