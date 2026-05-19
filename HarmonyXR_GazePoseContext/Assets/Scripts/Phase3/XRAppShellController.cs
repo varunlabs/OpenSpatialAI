@@ -239,10 +239,17 @@ public class XRAppShellController : MonoBehaviour
         ConfigureOvrManager(manager);
         rigRoot.AddComponent<OVRCameraRig>();
 
-        if (existingMainCamera != null)
+        Camera rigCamera = rigRoot.GetComponentInChildren<Camera>(true);
+        if (existingMainCamera != null && rigCamera != null)
         {
             existingMainCamera.tag = "Untagged";
             existingMainCamera.SetActive(false);
+        }
+        else if (existingMainCamera != null)
+        {
+            existingMainCamera.tag = "MainCamera";
+            existingMainCamera.SetActive(true);
+            Debug.LogWarning("[Phase3] Bootstrapped OVRCameraRig did not create a render camera; keeping existing Main Camera active.");
         }
 
         Debug.Log("[Phase3] Bootstrapped OVRCameraRig for TrainingSimulation.");
