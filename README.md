@@ -52,6 +52,44 @@ The system follows a 3-layer architecture:
 * Repository: OpenSpatialAI
 * Base branch for this proof-of-concept line: `research/gaze-pose-context-v0`
 * Follow-up communication branch: `research/gaze-pose-context-communication-v0`
+* Unity 6 migration branch: `research/harmonyxr/unity-6.4-migration`
+
+## Current Verified Build
+
+The project has been migrated and verified on:
+
+* Unity Editor: `6000.4.7f1`
+* OpenXR Plugin: `1.16.1`
+* Meta XR Core SDK: `201.0.0`
+* Target device: Meta Quest 2
+* Main scene: `Assets/Scenes/TrainingSimulation.unity`
+
+The Quest build was verified to install, launch, and run the main simulation flow after updating the Android manifest to use Unity 6's `UnityPlayerGameActivity`.
+
+## Project Manual
+
+Detailed project documentation is available in:
+
+* `docs/README.md`
+* `docs/project_manual/00_START_HERE.md`
+* `docs/project_manual/01_PROJECT_OVERVIEW.md`
+* `docs/project_manual/02_REQUIRED_SOFTWARE_AND_SDKS.md`
+* `docs/project_manual/03_REPOSITORY_AND_PROJECT_STRUCTURE.md`
+* `docs/project_manual/04_INITIAL_SETUP_STEPS.md`
+* `docs/project_manual/05_UNITY_SCENE_AND_RUNTIME_FLOW.md`
+* `docs/project_manual/06_BUILD_AND_RUN_ON_QUEST.md`
+* `docs/project_manual/07_SCRIPT_GUIDE.md`
+* `docs/project_manual/08_TROUBLESHOOTING_AND_WARNINGS.md`
+* `docs/project_manual/09_FINAL_OUTPUT_AND_SUBMISSION.md`
+
+Current report and paper deliverables are organized under:
+
+* `docs/final_submission/lavanya/paper`
+* `docs/final_submission/lavanya/project_report`
+
+Older drafts and reference files are kept under:
+
+* `docs/archive`
 
 ## Research Context
 

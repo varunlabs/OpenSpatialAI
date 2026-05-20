@@ -30,7 +30,7 @@
 \maketitle
 
 \begin{abstract}
-Adaptive extended reality (XR) systems need to respond to user attention, disengagement, and task flow without requiring explicit user input. This paper presents GazePose-Context, a Unity-based XR prototype that infers user context during a simple training task by combining gaze, head pose, body posture, hand interaction, and spatial context signals. The system organizes processing into three layers: sensor abstraction, context inference, and XR adaptation. Multimodal signals are synchronized into a shared SignalFrame, transformed into modality-specific feature vectors, fused through interpretable rules, and stabilized with a hysteresis-based state machine to estimate four context states: Engaged, Distracted, Transitioning, and Idle. These states drive lightweight adaptive behaviors such as subtle focus reinforcement, redirection prompts, next-step support, and rest-oriented controls. The current implementation targets Meta Quest deployment using Unity 2022.3.62f1, OpenXR 1.14.3, Meta XR All-in-One SDK 201.0.0, and OVRPlugin 1.201.0. This paper reports the current implementation status in the repository, integrates the reference figures from the earlier draft, and prepares the manuscript in paper-ready LaTeX format while leaving explicit placeholders only where verified literature and user-study results are still missing.
+Adaptive extended reality (XR) systems need to respond to user attention, disengagement, and task flow without requiring explicit user input. This paper presents GazePose-Context, a Unity-based XR prototype that infers user context during a simple training task by combining gaze, head pose, body posture, hand interaction, and spatial context signals. The system organizes processing into three layers: sensor abstraction, context inference, and XR adaptation. Multimodal signals are synchronized into a shared SignalFrame, transformed into modality-specific feature vectors, fused through interpretable rules, and stabilized with a hysteresis-based state machine to estimate four context states: Engaged, Distracted, Transitioning, and Idle. These states drive lightweight adaptive behaviors such as subtle focus reinforcement, redirection prompts, next-step support, and rest-oriented controls. The current submission build targets Meta Quest deployment using Unity 6000.4.7f1, OpenXR 1.16.1, Meta XR Core SDK 201.0.0, URP 17.4.0, and OVRPlugin 1.201.0. This paper reports the current implementation status in the repository, integrates the reference figures from the earlier draft, and prepares the manuscript in paper-ready LaTeX format while leaving explicit placeholders only where verified literature and user-study results are still missing.
 \end{abstract}
 
 \textbf{Keywords:} XR, adaptive interfaces, multimodal interaction, gaze, body pose, hand tracking, context inference, Meta Quest
@@ -189,12 +189,12 @@ The current \texttt{ContextFusionEngine} applies prioritized rules to infer a ca
 
 \section{Implementation}
 \subsection{Software Stack}
-The repository currently documents the following versions:
+The repository currently documents the following verified submission versions:
 \begin{itemize}[leftmargin=1.2em]
-  \item Unity Editor: 2022.3.62f1
-  \item OpenXR Plugin: 1.14.3
-  \item Meta XR All-in-One SDK: 201.0.0
-  \item Meta XR Core SDK: included with Meta XR All-in-One SDK
+  \item Unity Editor: 6000.4.7f1
+  \item OpenXR Plugin: 1.16.1
+  \item Meta XR Core SDK: 201.0.0
+  \item Universal Render Pipeline: 17.4.0
   \item OVRPlugin: 1.201.0
 \end{itemize}
 

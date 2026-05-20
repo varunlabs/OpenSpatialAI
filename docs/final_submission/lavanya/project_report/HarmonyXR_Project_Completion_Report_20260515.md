@@ -310,3 +310,34 @@ The current implementation demonstrates:
 - and presentation-ready documentation outputs.
 
 The project is currently suitable for final demo preparation, internal team review, stakeholder explanation, and research-paper refinement within the approved scope.
+
+---
+
+## 10. Unity 6 Migration and Quest Verification Update - May 20, 2026
+
+After the May 15 report, the Unity project was migrated and verified on Unity `6000.4.7f1`.
+
+Completed update work:
+
+- stabilized the Unity project after package import and Safe Mode issues,
+- confirmed the `TrainingSimulation` scene and project assets were preserved,
+- replaced Meta XR All-in-One with Meta XR Core to avoid duplicate Oculus Android namespace conflicts,
+- restored required direct dependencies including Input System and TextMeshPro,
+- applied Meta XR Project Setup Tool fixes for Quest/Android compatibility,
+- updated the Android manifest to use Unity 6's `com.unity3d.player.UnityPlayerGameActivity`,
+- fixed the Quest loading-screen issue caused by the invalid `AppUIGameActivity` entry,
+- added a camera fallback in `XRAppShellController` so the scene retains a valid render camera if rig bootstrapping is incomplete,
+- built, installed, launched, and verified the APK successfully on Meta Quest 2.
+
+Current verified environment:
+
+- Unity Editor: `6000.4.7f1`
+- OpenXR Plugin: `1.16.1`
+- Meta XR Core SDK: `201.0.0`
+- URP: `17.4.0`
+- Target device: Meta Quest 2
+- Runtime scene: `Assets/Scenes/TrainingSimulation.unity`
+
+Current status:
+
+The application now launches correctly on Quest 2 and the main simulation flow is working. Remaining work is final documentation, report/paper wording updates, demo capture, APK packaging, and final repository backup.

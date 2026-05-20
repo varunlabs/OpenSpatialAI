@@ -102,7 +102,7 @@ The XR app shell translates inferred state into visible user support. It include
 
 # 5. Prototype Implementation
 
-The prototype is implemented in Unity 2022.3.62f1 with OpenXR 1.14.3 and Meta XR SDK 201.0.0. The app targets Meta Quest headset execution. The primary scene is TrainingSimulation, where the user sorts a cube, cylinder, and sphere into corresponding pads or receptacles.
+The prototype is implemented in Unity and has been migrated to Unity 6000.4.7f1 for the current submission build. The verified Quest build uses OpenXR 1.16.1, Meta XR Core SDK 201.0.0, and URP 17.4.0. The app targets Meta Quest headset execution. The primary scene is TrainingSimulation, where the user sorts a cube, cylinder, and sphere into corresponding pads or receptacles.
 
 The main implementation components are:
 

@@ -2,6 +2,11 @@
 
 Use this folder to collect final validation proof for the HarmonyXR adaptive XR proof-of-concept.
 
+Start with:
+
+- `00_EVIDENCE_INDEX.md`
+- `EVIDENCE_SUMMARY_20260514.md`
+
 ## Folder Usage
 - `01_Build_Proof`: headset launch and build/runtime proof notes.
 - `02_Live_Sensor_Validation`: gaze/head/hand/body/spatial tracking proof.

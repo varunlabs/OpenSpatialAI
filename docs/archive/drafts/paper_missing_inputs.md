@@ -76,4 +76,4 @@ If you want the fastest path to a submission-ready paper, do this next:
 2. Collect or organize any existing session logs and screenshots.
 3. Add related work references.
 4. Run at least a small pilot evaluation.
-5. Replace the placeholder evaluation section in `docs/paper_draft.md` with real results.
+5. Replace the placeholder evaluation section in `docs/archive/drafts/paper_draft.md` with real results if this archived draft is reused.
