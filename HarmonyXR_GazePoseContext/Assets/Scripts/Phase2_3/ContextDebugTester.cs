@@ -37,19 +37,19 @@ public class ContextDebugTester : MonoBehaviour
     {
         if (signalSynchroniser == null)
         {
-            signalSynchroniser = FindObjectOfType<SignalSynchroniser>();
+            signalSynchroniser = FindAnyObjectByType<SignalSynchroniser>();
         }
         if (cubeDisplay == null)
         {
-            cubeDisplay = FindObjectOfType<CubeStateDisplay>(true);
+            cubeDisplay = FindAnyObjectByType<CubeStateDisplay>(FindObjectsInactive.Include);
         }
         if (uiDisplay == null)
         {
-            uiDisplay = FindObjectOfType<ContextStateUIDisplay>(true);
+            uiDisplay = FindAnyObjectByType<ContextStateUIDisplay>(FindObjectsInactive.Include);
         }
         if (contextCubeHighlight == null)
         {
-            contextCubeHighlight = FindObjectOfType<GazeHighlight>(true);
+            contextCubeHighlight = FindAnyObjectByType<GazeHighlight>(FindObjectsInactive.Include);
         }
 
         if (cubeDisplay == null)

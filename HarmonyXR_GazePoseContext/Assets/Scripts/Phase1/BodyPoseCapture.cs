@@ -290,7 +290,7 @@ public class BodyPoseCapture : MonoBehaviour
     {
         if (ovrCameraRig == null)
         {
-            ovrCameraRig = FindObjectOfType<OVRCameraRig>(true);
+            ovrCameraRig = FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include);
         }
 
         if (bodySkeleton != null)
@@ -298,7 +298,7 @@ public class BodyPoseCapture : MonoBehaviour
             return;
         }
 
-        OVRSkeleton[] skeletons = FindObjectsOfType<OVRSkeleton>(true);
+        OVRSkeleton[] skeletons = FindObjectsByType<OVRSkeleton>(FindObjectsInactive.Include);
         for (int i = 0; i < skeletons.Length; i++)
         {
             OVRSkeleton skeleton = skeletons[i];

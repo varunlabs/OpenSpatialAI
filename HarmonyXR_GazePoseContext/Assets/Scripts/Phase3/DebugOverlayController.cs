@@ -60,17 +60,17 @@ public class DebugOverlayController : MonoBehaviour
     {
         if (appShell == null)
         {
-            appShell = FindObjectOfType<XRAppShellController>(true);
+            appShell = FindAnyObjectByType<XRAppShellController>(FindObjectsInactive.Include);
         }
 
         if (contextSource == null)
         {
-            contextSource = FindObjectOfType<ContextDebugTester>(true);
+            contextSource = FindAnyObjectByType<ContextDebugTester>(FindObjectsInactive.Include);
         }
 
         if (handCapture == null)
         {
-            handCapture = FindObjectOfType<HandCapture>(true);
+            handCapture = FindAnyObjectByType<HandCapture>(FindObjectsInactive.Include);
         }
 
         if (userHead == null && Camera.main != null)
@@ -721,7 +721,7 @@ public class DebugOverlayController : MonoBehaviour
         field.fontSize = fontSize;
         field.alignment = alignment;
         field.color = new Color(0.92f, 0.94f, 0.98f, 1f);
-        field.enableWordWrapping = wrap;
+        field.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
         field.overflowMode = wrap ? TextOverflowModes.Ellipsis : TextOverflowModes.Truncate;
         field.raycastTarget = false;
     }

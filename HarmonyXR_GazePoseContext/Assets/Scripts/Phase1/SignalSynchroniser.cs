@@ -123,22 +123,22 @@ public class SignalSynchroniser : MonoBehaviour
     {
         if (gazeCapture == null)
         {
-            gazeCapture = FindObjectOfType<GazeCapture>(true);
+            gazeCapture = FindAnyObjectByType<GazeCapture>(FindObjectsInactive.Include);
         }
 
         if (bodyPoseCapture == null)
         {
-            bodyPoseCapture = FindObjectOfType<BodyPoseCapture>(true);
+            bodyPoseCapture = FindAnyObjectByType<BodyPoseCapture>(FindObjectsInactive.Include);
         }
 
         if (handCapture == null)
         {
-            handCapture = FindObjectOfType<HandCapture>(true);
+            handCapture = FindAnyObjectByType<HandCapture>(FindObjectsInactive.Include);
         }
 
         if (spatialContextDetector == null)
         {
-            spatialContextDetector = FindObjectOfType<SpatialContextDetector>(true);
+            spatialContextDetector = FindAnyObjectByType<SpatialContextDetector>(FindObjectsInactive.Include);
         }
     }
 

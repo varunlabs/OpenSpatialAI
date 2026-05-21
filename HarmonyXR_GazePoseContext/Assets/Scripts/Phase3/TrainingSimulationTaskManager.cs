@@ -17,7 +17,7 @@ public class TrainingSimulationTaskManager : MonoBehaviour
     {
         if (receptacles == null || receptacles.Length == 0)
         {
-            receptacles = FindObjectsOfType<ReceptacleTrigger>(true);
+            receptacles = FindObjectsByType<ReceptacleTrigger>(FindObjectsInactive.Include);
         }
 
         foreach (ReceptacleTrigger receptacle in receptacles)

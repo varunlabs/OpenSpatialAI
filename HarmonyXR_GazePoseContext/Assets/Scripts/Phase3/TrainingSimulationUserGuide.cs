@@ -108,7 +108,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
             appShell.ContextSnapshotUpdated -= OnContextSnapshotUpdated;
         }
 
-        ReceptacleTrigger[] receptacles = FindObjectsOfType<ReceptacleTrigger>(true);
+        ReceptacleTrigger[] receptacles = FindObjectsByType<ReceptacleTrigger>(FindObjectsInactive.Include);
         foreach (ReceptacleTrigger receptacle in receptacles)
         {
             if (receptacle != null)
@@ -131,7 +131,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
     {
         if (appShell == null)
         {
-            appShell = FindObjectOfType<XRAppShellController>(true);
+            appShell = FindAnyObjectByType<XRAppShellController>(FindObjectsInactive.Include);
         }
 
         if (userHead == null && Camera.main != null)
@@ -141,7 +141,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         if (handCapture == null)
         {
-            handCapture = FindObjectOfType<HandCapture>(true);
+            handCapture = FindAnyObjectByType<HandCapture>(FindObjectsInactive.Include);
         }
 
         if (taskAreaAnchor == null)
@@ -155,7 +155,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
         if (contextSource == null)
         {
-            contextSource = FindObjectOfType<ContextDebugTester>(true);
+            contextSource = FindAnyObjectByType<ContextDebugTester>(FindObjectsInactive.Include);
         }
     }
 
@@ -209,7 +209,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
 
     private void RegisterPlacementEvents()
     {
-        ReceptacleTrigger[] receptacles = FindObjectsOfType<ReceptacleTrigger>(true);
+        ReceptacleTrigger[] receptacles = FindObjectsByType<ReceptacleTrigger>(FindObjectsInactive.Include);
         foreach (ReceptacleTrigger receptacle in receptacles)
         {
             if (receptacle != null)
@@ -628,7 +628,7 @@ public class TrainingSimulationUserGuide : MonoBehaviour
         text.fontSize = fontSize;
         text.color = new Color(0.94f, 0.96f, 1f, 1f);
         text.alignment = TextAlignmentOptions.TopLeft;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
         text.richText = true;
         text.lineSpacing = 4f;
         text.raycastTarget = false;

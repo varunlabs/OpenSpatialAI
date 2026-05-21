@@ -18,7 +18,7 @@ public class GazeFeatureDebugTester : MonoBehaviour
     {
         if (signalSynchroniser == null)
         {
-            signalSynchroniser = FindObjectOfType<SignalSynchroniser>();
+            signalSynchroniser = FindAnyObjectByType<SignalSynchroniser>();
         }
 
         InvokeRepeating(nameof(SampleAndReport), 0.1f, 0.1f);

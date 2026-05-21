@@ -17,7 +17,7 @@ public class BodyHandFeatureDebugTester : MonoBehaviour
 
         if (signalSynchroniser == null)
         {
-            signalSynchroniser = FindObjectOfType<SignalSynchroniser>();
+            signalSynchroniser = FindAnyObjectByType<SignalSynchroniser>();
         }
 
         if (signalSynchroniser == null)

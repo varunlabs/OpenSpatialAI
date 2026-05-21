@@ -19,7 +19,7 @@ public class SpatialContextDetector : MonoBehaviour
     {
         if (ovrCameraRig == null)
         {
-            ovrCameraRig = FindObjectOfType<OVRCameraRig>(true);
+            ovrCameraRig = FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include);
         }
 
         posture_mode = "standing";
@@ -127,7 +127,7 @@ public class SpatialContextDetector : MonoBehaviour
 
         if (ovrCameraRig == null)
         {
-            ovrCameraRig = FindObjectOfType<OVRCameraRig>(true);
+            ovrCameraRig = FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include);
             if (ovrCameraRig == null)
             {
                 return null;

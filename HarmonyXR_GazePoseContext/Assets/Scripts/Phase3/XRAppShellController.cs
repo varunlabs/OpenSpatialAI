@@ -69,7 +69,7 @@ public class XRAppShellController : MonoBehaviour
         bool attemptedBootstrap = false;
         while (contextSource == null && elapsed < 3f)
         {
-            contextSource = FindObjectOfType<ContextDebugTester>(true);
+            contextSource = FindAnyObjectByType<ContextDebugTester>(FindObjectsInactive.Include);
             if (contextSource == null)
             {
                 if (autoBootstrapLiveContext && !attemptedBootstrap)
@@ -185,14 +185,14 @@ public class XRAppShellController : MonoBehaviour
         EnsureRuntimeHandTrackingObjects();
         EnsureComponent<HandCapture>(mainCamera.gameObject);
 
-        signalSynchroniser = FindObjectOfType<SignalSynchroniser>(true);
+        signalSynchroniser = FindAnyObjectByType<SignalSynchroniser>(FindObjectsInactive.Include);
         if (signalSynchroniser == null)
         {
             GameObject signalGo = new GameObject("Phase3_RuntimeSignals");
             signalSynchroniser = signalGo.AddComponent<SignalSynchroniser>();
         }
 
-        contextSource = FindObjectOfType<ContextDebugTester>(true);
+        contextSource = FindAnyObjectByType<ContextDebugTester>(FindObjectsInactive.Include);
         if (contextSource == null)
         {
             GameObject contextGo = new GameObject("Phase3_RuntimeContextSource");
@@ -207,7 +207,7 @@ public class XRAppShellController : MonoBehaviour
             return;
         }
 
-        if (FindObjectOfType<TrainingSimulationUserGuide>(true) != null)
+        if (FindAnyObjectByType<TrainingSimulationUserGuide>(FindObjectsInactive.Include) != null)
         {
             return;
         }
@@ -223,9 +223,9 @@ public class XRAppShellController : MonoBehaviour
             return;
         }
 
-        if (FindObjectOfType<OVRCameraRig>(true) != null)
+        if (FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include) != null)
         {
-            ConfigureOvrManager(FindObjectOfType<OVRManager>(true));
+            ConfigureOvrManager(FindAnyObjectByType<OVRManager>(FindObjectsInactive.Include));
             return;
         }
 
@@ -270,7 +270,7 @@ public class XRAppShellController : MonoBehaviour
     {
         bool hasLeft = false;
         bool hasRight = false;
-        OVRHand[] existingHands = FindObjectsOfType<OVRHand>(true);
+        OVRHand[] existingHands = FindObjectsByType<OVRHand>(FindObjectsInactive.Include);
 
         for (int i = 0; i < existingHands.Length; i++)
         {
@@ -299,7 +299,7 @@ public class XRAppShellController : MonoBehaviour
 
     private static Transform ResolveHandTrackingParent()
     {
-        OVRCameraRig rig = FindObjectOfType<OVRCameraRig>(true);
+        OVRCameraRig rig = FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include);
         if (rig != null)
         {
             return rig.transform;
@@ -342,17 +342,17 @@ public class XRAppShellController : MonoBehaviour
     {
         if (signalSynchroniser == null)
         {
-            signalSynchroniser = FindObjectOfType<SignalSynchroniser>(true);
+            signalSynchroniser = FindAnyObjectByType<SignalSynchroniser>(FindObjectsInactive.Include);
         }
 
         if (handCapture == null)
         {
-            handCapture = FindObjectOfType<HandCapture>(true);
+            handCapture = FindAnyObjectByType<HandCapture>(FindObjectsInactive.Include);
         }
 
         if (gazeCapture == null)
         {
-            gazeCapture = FindObjectOfType<GazeCapture>(true);
+            gazeCapture = FindAnyObjectByType<GazeCapture>(FindObjectsInactive.Include);
         }
     }
 
@@ -638,7 +638,7 @@ public class XRAppShellController : MonoBehaviour
         text.fontStyle = FontStyles.Bold;
         text.color = new Color(0.94f, 0.96f, 1f, 1f);
         text.alignment = TextAlignmentOptions.Center;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
 
         RectTransform textRect = text.rectTransform;
         textRect.anchorMin = new Vector2(0.12f, 0.18f);

@@ -1,0 +1,52 @@
+{
+  "qa_session": {
+    "date": "2026-05-20",
+    "device": "Meta Quest 2",
+    "adb_device_id": "1WMHH836GS1082",
+    "android_version": "14",
+    "android_sdk": "34",
+    "package_name": "com.UnityTechnologies.com.unity.template.urpblank",
+    "unity_activity": "com.unity3d.player.UnityPlayerGameActivity"
+  },
+  "evidence_status": {
+    "adb_device_connection": "captured",
+    "device_properties": "captured",
+    "installed_package_details": "captured",
+    "activity_state_after_launch": "captured",
+    "runtime_logcat": "captured",
+    "errors_only_logcat": "captured",
+    "memory_info": "captured",
+    "graphics_info": "captured",
+    "thermal_status": "captured",
+    "current_run_context_jsonl": "captured",
+    "legacy_context_json": "captured",
+    "context_state_counts": "captured",
+    "context_log_summary": "captured",
+    "runtime_screenshot": "needs_recapture_zero_bytes",
+    "runtime_screenrecord": "needs_recapture_or_external_recording_zero_bytes",
+    "manual_qa_notes": "missing"
+  },
+  "log_review": {
+    "runtime_logcat_lines": 27021,
+    "runtime_logcat_contains_unity_context_updates": true,
+    "context_jsonl_valid_records": 2220,
+    "context_states_observed": [
+      "Idle",
+      "Distracted",
+      "Transitioning",
+      "Engaged"
+    ],
+    "activity_dump_contains_unity_task": true,
+    "activity_dump_contains_unity_player_game_activity": true,
+    "unity_app_fatal_exception_found": false,
+    "noted_non_app_system_errors": [
+      "Quest system/diagnostic services emitted errors unrelated to the Unity package.",
+      "ADB screenrecord failed with INVALID_LAYER_STACK, which is common for XR layer rendering."
+    ]
+  },
+  "next_required_actions": [
+    "Create 15_manual_qa_notes.txt with headset-observed pass/fail results.",
+    "Recapture screenshot using adb exec-out or take external photo/video evidence if Quest screen capture remains unavailable.",
+    "Use this evidence folder when updating the final report and paper."
+  ]
+}

@@ -92,17 +92,17 @@ public class AdaptationManager : MonoBehaviour
     {
         if (appShell == null)
         {
-            appShell = FindObjectOfType<XRAppShellController>(true);
+            appShell = FindAnyObjectByType<XRAppShellController>(FindObjectsInactive.Include);
         }
 
         if (userGuide == null)
         {
-            userGuide = FindObjectOfType<TrainingSimulationUserGuide>(true);
+            userGuide = FindAnyObjectByType<TrainingSimulationUserGuide>(FindObjectsInactive.Include);
         }
 
         if (handCapture == null)
         {
-            handCapture = FindObjectOfType<HandCapture>(true);
+            handCapture = FindAnyObjectByType<HandCapture>(FindObjectsInactive.Include);
         }
 
         // If app shell is production-mode, force user-facing UI behavior.
@@ -121,7 +121,7 @@ public class AdaptationManager : MonoBehaviour
 
         if (userHead == null)
         {
-            OVRCameraRig rig = FindObjectOfType<OVRCameraRig>(true);
+            OVRCameraRig rig = FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include);
             if (rig != null && rig.centerEyeAnchor != null)
             {
                 userHead = rig.centerEyeAnchor;
@@ -182,7 +182,7 @@ public class AdaptationManager : MonoBehaviour
     {
         if (handCapture == null)
         {
-            handCapture = FindObjectOfType<HandCapture>(true);
+            handCapture = FindAnyObjectByType<HandCapture>(FindObjectsInactive.Include);
         }
 
         bool leftPinch = handCapture != null ? handCapture.left_pinch : latestFrame.left_pinch;
@@ -339,7 +339,7 @@ public class AdaptationManager : MonoBehaviour
             }
             else
             {
-                OVRCameraRig rig = FindObjectOfType<OVRCameraRig>(true);
+                OVRCameraRig rig = FindAnyObjectByType<OVRCameraRig>(FindObjectsInactive.Include);
                 if (rig != null && rig.centerEyeAnchor != null)
                 {
                     userHead = rig.centerEyeAnchor;
@@ -897,7 +897,7 @@ public class AdaptationManager : MonoBehaviour
 
     private static void HideKnownLegacyPanelObject(string objectName)
     {
-        Transform[] allTransforms = FindObjectsOfType<Transform>(true);
+        Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Include);
         for (int i = 0; i < allTransforms.Length; i++)
         {
             Transform t = allTransforms[i];
@@ -1198,7 +1198,7 @@ public class AdaptationManager : MonoBehaviour
             label.enabled = true;
             label.color = Color.white;
             label.fontSize = Mathf.Max(label.fontSize, 22f);
-            label.enableWordWrapping = true;
+            label.textWrappingMode = TextWrappingModes.Normal;
             label.overflowMode = TextOverflowModes.Overflow;
             label.alignment = TextAlignmentOptions.Center;
             label.raycastTarget = false;
@@ -1358,7 +1358,7 @@ public class AdaptationManager : MonoBehaviour
         {
             label.fontSize = 23f;
             label.alignment = TextAlignmentOptions.Center;
-            label.enableWordWrapping = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
         }
     }
 
@@ -1526,7 +1526,7 @@ public class AdaptationManager : MonoBehaviour
         text.fontSize = 24f;
         text.color = Color.white;
         text.alignment = TextAlignmentOptions.Center;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
         text.raycastTarget = false;
 
         RectTransform textRect = text.rectTransform;
@@ -1559,7 +1559,7 @@ public class AdaptationManager : MonoBehaviour
 
     private bool ShouldShowPersistentControls()
     {
-        TrainingSimulationUserGuide[] guides = FindObjectsOfType<TrainingSimulationUserGuide>(true);
+        TrainingSimulationUserGuide[] guides = FindObjectsByType<TrainingSimulationUserGuide>(FindObjectsInactive.Include);
         for (int i = 0; i < guides.Length; i++)
         {
             if (guides[i] != null && guides[i].OnboardingActive)
@@ -1619,7 +1619,7 @@ public class AdaptationManager : MonoBehaviour
             persistentStatsText.color = Color.white;
             persistentStatsText.fontSize = 23f;
             persistentStatsText.alignment = TextAlignmentOptions.TopLeft;
-            persistentStatsText.enableWordWrapping = true;
+            persistentStatsText.textWrappingMode = TextWrappingModes.Normal;
             persistentStatsText.raycastTarget = false;
 
             RectTransform textRect = persistentStatsText.rectTransform;
@@ -1644,7 +1644,7 @@ public class AdaptationManager : MonoBehaviour
             persistentStatsText.fontSize = 23f;
             persistentStatsText.color = Color.white;
             persistentStatsText.alignment = TextAlignmentOptions.TopLeft;
-            persistentStatsText.enableWordWrapping = true;
+            persistentStatsText.textWrappingMode = TextWrappingModes.Normal;
         }
     }
 
@@ -1720,7 +1720,7 @@ public class AdaptationManager : MonoBehaviour
     {
         if (contextSource == null)
         {
-            contextSource = FindObjectOfType<ContextDebugTester>(true);
+            contextSource = FindAnyObjectByType<ContextDebugTester>(FindObjectsInactive.Include);
         }
     }
 

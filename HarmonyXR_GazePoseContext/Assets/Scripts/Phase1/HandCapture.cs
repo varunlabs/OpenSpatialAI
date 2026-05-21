@@ -300,7 +300,7 @@ public class HandCapture : MonoBehaviour
             return;
         }
 
-        OVRHand[] hands = FindObjectsOfType<OVRHand>(true);
+        OVRHand[] hands = FindObjectsByType<OVRHand>(FindObjectsInactive.Include);
         for (int i = 0; i < hands.Length; i++)
         {
             OVRHand hand = hands[i];

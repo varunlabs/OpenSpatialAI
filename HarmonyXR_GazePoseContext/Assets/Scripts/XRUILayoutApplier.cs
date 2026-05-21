@@ -150,7 +150,7 @@ public class XRUILayoutApplier : MonoBehaviour
             rt.localRotation = Quaternion.identity;
 
             tmp.fontSize = 38f;
-            tmp.enableWordWrapping = true;
+            tmp.textWrappingMode = TextWrappingModes.Normal;
             tmp.alignment = TextAlignmentOptions.TopLeft;
         }
     }

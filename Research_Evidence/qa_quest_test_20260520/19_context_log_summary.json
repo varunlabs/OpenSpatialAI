@@ -1,0 +1,15 @@
+﻿{
+    "source_file":  "16_context_log_20260520_115419.jsonl",
+    "total_lines":  2220,
+    "valid_json_records":  2220,
+    "first_timestamp_ms":  1779278059569,
+    "last_timestamp_ms":  1779279284378,
+    "observed_context_states":  [
+                                    "Idle",
+                                    "Distracted",
+                                    "Transitioning",
+                                    "Engaged"
+                                ],
+    "state_counts_file":  "18_context_state_counts.csv",
+    "parsed_successfully":  true
+}
